@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DOZY StockPro | Single Location</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { 
+                extend: {
+                    colors: { retro: { base: '#f4f0eb', dark: '#1a1c23', teal: '#14b8a6', rose: '#f43f5e', mustard: '#f59e0b', slate: '#6366f1' } },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards',
+                        'blob': 'blob 15s infinite alternate cubic-bezier(0.4, 0, 0.2, 1)',
+                        'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeInUp: { '0%': { opacity: '0', transform: 'translateY(15px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        blob: { '0%': { transform: 'translate(0px, 0px) scale(1)' }, '33%': { transform: 'translate(30px, -50px) scale(1.1)' }, '66%': { transform: 'translate(-20px, 20px) scale(0.9)' }, '100%': { transform: 'translate(0px, 0px) scale(1)' } },
+                        toastIn: { '0%': { opacity: '0', transform: 'translateY(20px) scale(0.95)' }, '100%': { opacity: '1', transform: 'translateY(0) scale(1)' } },
+                        toastOut: { '0%': { opacity: '1', transform: 'translateY(0)' }, '100%': { opacity: '0', transform: 'translateY(10px)' } },
+                        pulseSoft: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.6' } }
+                    }
+                } 
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #f4f0eb; color: #334155; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; overflow: hidden; }
+        .dark body { background-color: #0f172a; color: #e2e8f0; }
+        .bg-blobs { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; filter: blur(60px); opacity: 0.6; }
+        .dark .bg-blobs { opacity: 0.2; }
+        .blob-1 { position: absolute; top: -10%; left: -10%; width: 50vw; height: 50vw; background: #c084fc; border-radius: 50%; mix-blend-mode: multiply; animation: blob 18s infinite alternate; }
+        .blob-2 { position: absolute; top: 40%; right: -20%; width: 60vw; height: 60vw; background: #60a5fa; border-radius: 50%; mix-blend-mode: multiply; animation: blob 22s infinite alternate-reverse; }
+        .blob-3 { position: absolute; bottom: -20%; left: 20%; width: 40vw; height: 40vw; background: #f472b6; border-radius: 50%; mix-blend-mode: multiply; animation: blob 20s infinite alternate; }
+        .dark .blob-1 { background: #7e22ce; mix-blend-mode: screen; }
+        .dark .blob-2 { background: #1d4ed8; mix-blend-mode: screen; }
+        .dark .blob-3 { background: #be185d; mix-blend-mode: screen; }
+        .glass-panel { background: rgba(255, 255, 255, 0.55); backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05), inset 1px 1px 0px rgba(255, 255, 255, 0.8); border-radius: 1.5rem; transition: all 0.4s ease; }
+        .dark .glass-panel { background: rgba(30, 41, 59, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), inset 1px 1px 0px rgba(255, 255, 255, 0.05); }
+        .liquid-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1); border-color: rgba(255,255,255,0.9); }
+        .dark .liquid-hover:hover { box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.15); }
+        .glass-input { background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(255, 255, 255, 0.5); box-shadow: inset 2px 2px 5px rgba(0,0,0,0.03), inset -2px -2px 5px rgba(255,255,255,0.8); border-radius: 1rem; transition: all 0.3s ease; }
+        .glass-input:focus { background: rgba(255, 255, 255, 1); outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2), inset 2px 2px 5px rgba(0,0,0,0.03); transform: scale(1.01); }
+        .dark .glass-input { background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: inset 2px 2px 5px rgba(0,0,0,0.4), inset -1px -1px 3px rgba(255,255,255,0.02); color: #f8fafc; }
+        .dark .glass-input:focus { background: rgba(15, 23, 42, 0.7); border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.2); }
+        .glass-btn { background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.5)); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 2px 4px 10px rgba(0,0,0,0.05), inset 1px 1px 2px rgba(255,255,255,1); transition: all 0.3s ease; }
+        .glass-btn:hover { transform: translateY(-2px); box-shadow: 2px 8px 15px rgba(0,0,0,0.08), inset 1px 1px 2px rgba(255,255,255,1); }
+        .glass-btn:active { transform: translateY(1px) scale(0.98); }
+        .dark .glass-btn { background: linear-gradient(135deg, rgba(55,65,81,0.8), rgba(31,41,55,0.6)); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 2px 4px 10px rgba(0,0,0,0.3), inset 1px 1px 2px rgba(255,255,255,0.05); color: #f1f5f9; }
+        .custom-scrollbar { -webkit-overflow-scrolling: touch; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
+        #toastContainer { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 99999; display: flex; flex-direction: column; gap: 0.6rem; pointer-events: none; }
+        .toast { pointer-events: auto; min-width: 220px; max-width: 340px; padding: 0.85rem 1.2rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 800; display: flex; align-items: center; gap: 0.7rem; animation: toastIn 0.4s forwards; backdrop-filter: blur(20px); box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
+        .toast.success { background: rgba(20, 184, 166, 0.92); color: white; border: 1px solid rgba(255,255,255,0.3); }
+        .toast.error { background: rgba(244, 63, 94, 0.92); color: white; border: 1px solid rgba(255,255,255,0.3); }
+        .toast.warning { background: rgba(245, 158, 11, 0.92); color: white; border: 1px solid rgba(255,255,255,0.3); }
+        .toast.info { background: rgba(99, 102, 241, 0.92); color: white; border: 1px solid rgba(255,255,255,0.3); }
+        .toast.fade-out { animation: toastOut 0.3s ease-in forwards; }
+        .toast-icon { font-size: 1.1rem; flex-shrink: 0; }
+        .toast-msg { flex: 1; line-height: 1.4; }
+        #customConfirmModal { position: fixed; inset: 0; z-index: 99990; backdrop-filter: blur(12px); background: rgba(255,255,255,0.3); }
+        .dark #customConfirmModal { background: rgba(0,0,0,0.6); }
+        #loadingOverlay { position: fixed; inset: 0; z-index: 99980; backdrop-filter: blur(8px); background: rgba(255,255,255,0.4); flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
+        .dark #loadingOverlay { background: rgba(0,0,0,0.5); }
+        .loader-ring { width: 48px; height: 48px; border: 4px solid rgba(99,102,241,0.2); border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media print { .no-print { display: none; } body { overflow: auto !important; } }
+        .sidebar-active { background-color: #6366f1 !important; color: #ffffff !important; box-shadow: 0 4px 15px -3px rgba(99, 102, 241, 0.5) !important; }
+        .dark .sidebar-active { background-color: #4f46e5 !important; }
+        .kpi-card { transition: all 0.3s; cursor: default; }
+        .kpi-card:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 12px 25px -5px rgba(0,0,0,0.1); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .status-online { background: #14b8a6; animation: pulseSoft 2s infinite; box-shadow: 0 0 6px rgba(20,184,166,0.6); }
+        .status-syncing { background: #f59e0b; animation: pulseSoft 0.8s infinite; }
+        .status-error { background: #f43f5e; }
+        .kbd { display: inline-block; padding: 1px 5px; background: rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.15); border-radius: 4px; font-size: 10px; font-family: monospace; color: #666; }
+        .dark .kbd { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: #aaa; }
+        .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; gap: 1rem; opacity: 0.6; }
+        .empty-state .empty-icon { font-size: 3rem; filter: grayscale(0.3); }
+        .empty-state p { font-size: 0.7rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.25em; color: #94a3b8; text-align: center; }
+        .keyboard-focus { background: rgba(99, 102, 241, 0.15) !important; }
+    </style>
+</head>
+<body class="h-screen w-full transition-colors duration-500 selection:bg-retro-slate selection:text-white">
+
+<div class="bg-blobs"><div class="blob-1"></div><div class="blob-2"></div><div class="blob-3"></div></div>
+<div id="toastContainer"></div>
+
+<div id="customConfirmModal" class="items-center justify-center p-4" style="display: none;">
+    <div class="glass-panel p-6 w-80 max-w-[90vw] animate-fade-in-up text-center">
+        <div id="confirmIcon" class="text-4xl mb-3">⚠️</div>
+        <h3 id="confirmTitle" class="text-base font-black text-slate-800 dark:text-slate-100 mb-2 uppercase tracking-wider"></h3>
+        <p id="confirmMsg" class="text-xs text-slate-500 mb-6 leading-relaxed"></p>
+        <div class="flex gap-3">
+            <button id="confirmCancel" class="flex-1 glass-btn py-2.5 text-xs font-black uppercase tracking-widest rounded-xl text-slate-600 dark:text-slate-300">Cancel</button>
+            <button id="confirmOk" class="flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl text-white shadow-md transition-all hover:-translate-y-0.5"></button>
+        </div>
+    </div>
+</div>
+
+<div id="loadingOverlay" style="display: none;"><div class="loader-ring"></div><p class="text-xs font-black uppercase tracking-[0.3em] text-slate-600 dark:text-slate-300 mt-3">Syncing Engine...</p></div>
+<div id="sidebarBackdrop" onclick="closeMobileSidebar()" class="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm transition-opacity" style="display: none;"></div>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" class="fixed inset-0 z-[10000] flex items-center justify-center p-4 modal-overlay backdrop-blur-md bg-white/30 dark:bg-black/50 overflow-y-auto" style="display: flex;">
+    <div class="glass-panel p-8 md:p-10 max-w-md w-full animate-fade-in-up my-auto">
+        <div class="text-center mb-8">
+            <div class="inline-block p-4 rounded-full bg-white/60 dark:bg-white/10 shadow-inner mb-4"><span class="text-5xl block" style="animation: blob 3s infinite alternate;">📦</span></div>
+            <h2 class="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-retro-slate to-retro-rose tracking-tight">DOZY StockPro</h2>
+            <p class="text-xs text-slate-500 mt-1 uppercase tracking-[0.2em] font-bold">v5.0 — Single Location Engine</p>
+        </div>
+        <div class="space-y-4">
+            <div class="flex gap-2 w-full p-1 bg-white/50 dark:bg-black/40 rounded-xl shadow-inner mb-2">
+                <label class="flex-1 cursor-pointer">
+                    <input type="radio" name="loginRole" value="staff" class="peer hidden" checked>
+                    <div class="h-full flex items-center justify-center text-center px-1 py-3 rounded-lg text-xs font-bold transition-all peer-checked:bg-white dark:peer-checked:bg-slate-800 peer-checked:text-retro-teal text-slate-500 hover:bg-white/50 border border-transparent peer-checked:border-retro-teal/20">🏢 Staff</div>
+                </label>
+                <label class="flex-1 cursor-pointer">
+                    <input type="radio" name="loginRole" value="admin" class="peer hidden">
+                    <div class="h-full flex items-center justify-center text-center px-1 py-3 rounded-lg text-xs font-bold transition-all peer-checked:bg-white dark:peer-checked:bg-slate-800 peer-checked:text-retro-rose text-slate-500 hover:bg-white/50 border border-transparent peer-checked:border-retro-rose/20">⚙️ RAHUL (Admin)</div>
+                </label>
+            </div>
+            <div>
+                <input type="password" id="loginPassword" placeholder="Enter Password" class="glass-input w-full p-3.5 font-bold tracking-widest text-center shadow-sm text-sm" onkeypress="if(event.key === 'Enter') attemptLogin()">
+                <p id="loginError" class="text-retro-rose text-xs mt-2 font-bold text-center" style="display: none;">⚠️ Incorrect Password</p>
+            </div>
+            <button onclick="attemptLogin()" class="w-full bg-gradient-to-r from-retro-slate to-indigo-500 hover:opacity-90 text-white font-bold py-3.5 rounded-xl transition-all shadow-md transform hover:-translate-y-1 uppercase tracking-widest text-sm mt-2">Login</button>
+            <div class="flex items-center gap-3 my-4"><div class="h-px bg-slate-300 dark:bg-slate-600 flex-1"></div><span class="text-xs font-bold text-slate-400 uppercase tracking-widest">OR</span><div class="h-px bg-slate-300 dark:bg-slate-600 flex-1"></div></div>
+            <button onclick="guestLogin()" class="w-full glass-btn font-bold py-3.5 rounded-xl transition-all shadow-sm uppercase tracking-widest text-sm flex justify-center gap-2"><span>👁️</span> View Live Stock</button>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" class="h-screen w-full flex overflow-hidden" style="display: none;">
+    <aside id="sidebar" class="w-64 glass-panel m-3 mr-0 fixed lg:relative inset-y-0 left-0 transform -translate-x-[120%] lg:translate-x-0 flex flex-col flex-shrink-0 z-[100] transition-transform duration-300 h-[calc(100vh-1.5rem)] shadow-2xl lg:shadow-none bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl">
+        <div class="p-5 border-b border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-white/60 dark:bg-white/10 rounded-xl shadow-inner"><span class="text-xl">📦</span></div>
+                <div><h1 class="text-lg font-extrabold tracking-tight text-slate-800 dark:text-slate-100">DOZY <span class="text-transparent bg-clip-text bg-gradient-to-r from-retro-slate to-retro-teal">Pro</span></h1><span id="userRoleBadge" class="text-[9px] bg-gradient-to-r from-retro-mustard to-orange-400 text-white px-2 py-0.5 rounded-full uppercase tracking-widest shadow-sm font-bold"></span></div>
+            </div>
+            <button onclick="closeMobileSidebar()" class="lg:hidden text-slate-500 hover:text-retro-rose font-bold text-xl">✕</button>
+        </div>
+        <nav class="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar mt-2">
+            <button onclick="navigateSection('dashboard')" id="nav-dashboard" class="sidebar-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold transition-all text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-white/10 sidebar-active"><span class="text-lg">📊</span> Dashboard</button>
+            <button onclick="navigateSection('items')" id="nav-items" class="sidebar-btn admin-only-section w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold transition-all text-slate-600 hover:bg-white/60 dark:text-slate-300"><span class="text-lg">🗄️</span> Master Catalog</button>
+            <button onclick="navigateSection('entries')" id="nav-entries" class="sidebar-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold transition-all text-slate-600 hover:bg-white/60 dark:text-slate-300"><span class="text-lg">✍️</span> Stock Entries</button>
+            <button onclick="navigateSection('history')" id="nav-history" class="sidebar-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold transition-all text-slate-600 hover:bg-white/60 dark:text-slate-300"><span class="text-lg">🕰️</span> History Logs</button>
+            <button onclick="navigateSection('orders')" id="nav-orders" class="sidebar-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold transition-all text-slate-600 hover:bg-white/60 dark:text-slate-300"><span class="text-lg">📦</span> Dispatch Orders</button>
+            <button onclick="navigateSection('gr-log')" id="nav-gr-log" class="sidebar-btn staff-admin-only w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold transition-all text-slate-600 hover:bg-white/60 dark:text-slate-300"><span class="text-lg">♻️</span> GR / Defective</button>
+            <button onclick="navigateSection('mfp-damage')" id="nav-mfp-damage" class="sidebar-btn staff-admin-only w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold transition-all text-slate-600 hover:bg-white/60 dark:text-slate-300"><span class="text-lg">🏭</span> MFP Damage</button>
+            <button onclick="navigateSection('pricing')" id="nav-pricing" class="sidebar-btn admin-only-section w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold transition-all text-slate-600 hover:bg-white/60 dark:text-slate-300"><span class="text-lg">💰</span> Pricing List</button>
+            <button onclick="navigateSection('viewer')" id="nav-viewer" class="sidebar-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] font-bold transition-all text-slate-600 hover:bg-white/60 dark:text-slate-300"><span class="text-lg">📡</span> Live Radar</button>
+        </nav>
+        <div class="p-4 border-t border-slate-200/50 dark:border-slate-700/50 shrink-0 space-y-2">
+            <div class="text-center glass-input py-2 px-3 rounded-xl"><div id="liveClockTime" class="font-mono font-black text-sm text-retro-slate"></div><div id="liveClockDate" class="text-[9px] font-bold text-slate-500 uppercase mt-0.5"></div></div>
+            <button onclick="logout()" class="w-full glass-btn hover:text-retro-rose px-4 py-2.5 rounded-xl text-xs font-bold transition-all uppercase flex justify-center gap-2"><span>🚪</span> Disconnect</button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-full relative overflow-hidden">
+        <header class="glass-panel m-3 p-3 md:p-4 flex justify-between items-center z-40 shrink-0 no-print">
+            <div class="flex items-center gap-3">
+                <button class="lg:hidden glass-btn p-2.5 md:p-2 rounded-xl text-lg flex items-center" onclick="openMobileSidebar()">☰</button>
+                <div class="flex items-center gap-2 bg-white/50 dark:bg-black/30 px-3 py-1.5 rounded-full shadow-inner"><span id="statusDot" class="status-dot status-online"></span><span id="syncStatus" class="text-[10px] text-slate-500 font-black uppercase hidden sm:inline-block">Ready</span></div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="manualRefresh()" class="glass-btn p-2 rounded-xl text-sm shadow-sm hover:scale-110" title="Refresh Data">🔄</button>
+                <button onclick="toggleViewMode()" class="glass-btn p-2 rounded-xl text-sm shadow-sm hidden sm:block hover:scale-110" title="Toggle Compact View">📏</button>
+                <button onclick="toggleTheme()" class="glass-btn p-2 rounded-xl text-sm shadow-sm hover:scale-110" title="Toggle Theme">🌗</button>
+                <div class="h-6 w-px bg-slate-300 dark:bg-slate-600 mx-1 md:mx-2 admin-only-section hidden sm:block"></div>
+                <div id="adminOnlyControls" class="flex items-center gap-2 admin-only-section">
+                    <input type="file" id="importExcelGlobal" accept=".xlsx, .xls" class="hidden" onchange="importAllDataExcel(event)">
+                    <button onclick="document.getElementById('importExcelGlobal').click()" class="bg-gradient-to-r from-retro-teal to-emerald-500 text-white px-3 py-2 rounded-xl text-[10px] md:text-xs font-bold transition-transform shadow-md uppercase hidden md:block">📥 Import</button>
+                    <button onclick="openExportModal()" class="bg-gradient-to-r from-retro-slate to-indigo-500 text-white px-3 py-2 rounded-xl text-[10px] md:text-xs font-bold transition-transform shadow-md uppercase hidden md:block">📤 Export</button>
+                    <button onclick="openBatchLedgerModal()" class="bg-gradient-to-r from-retro-mustard to-amber-500 text-white px-3 py-2 rounded-xl text-[10px] md:text-xs font-black transition-transform shadow-md uppercase flex items-center gap-1">⚡ Batch</button>
+                    <button onclick="confirmClearAll()" class="bg-gradient-to-r from-retro-rose to-red-500 text-white px-3 py-2 rounded-xl text-[10px] md:text-xs font-bold transition-transform shadow-md uppercase hidden lg:block">🚨 Reset</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-3 md:p-4 custom-scrollbar pb-32">
+            <!-- DASHBOARD -->
+            <div id="section-dashboard" class="nav-section space-y-6">
+                <div id="kpiDashboard" class="glass-panel liquid-hover p-4 md:p-6 flex flex-col">
+                    <div class="flex justify-between items-center mb-5 shrink-0 border-b border-slate-200/50 pb-3">
+                        <h2 class="text-lg md:text-xl font-extrabold flex items-center gap-2"><span class="p-1.5 bg-white/60 dark:bg-white/10 rounded-lg shadow-sm">📊</span> Overview</h2>
+                        <div class="text-[10px] text-slate-400 font-bold uppercase">Today's Snapshot</div>
+                    </div>
+                    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
+                        <div class="kpi-card glass-input p-4 border-l-4 border-l-retro-slate"><p class="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase mb-1">Total Products</p><h3 class="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-slate-700 to-slate-900 dark:from-white dark:to-slate-300" id="kpi-products">—</h3></div>
+                        <div class="kpi-card glass-input p-4 border-l-4 border-l-retro-teal"><p class="text-[9px] md:text-[10px] text-retro-teal font-bold uppercase mb-1">Available Stock</p><h3 class="text-xl font-black text-retro-teal drop-shadow-sm" id="kpi-units">0</h3></div>
+                        <div class="kpi-card glass-input p-4 border-l-4 border-l-retro-rose shadow-[0_0_15px_rgba(244,63,94,0.1)]"><p class="text-[9px] md:text-[10px] text-retro-rose font-bold uppercase mb-1">Zero Stock Items</p><h3 class="text-xl font-black text-retro-rose drop-shadow-md" id="kpi-oos">0</h3></div>
+                        <div class="kpi-card glass-input p-4 border-l-4 border-l-retro-slate/60 opacity-90"><p class="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase mb-1">Today Sales</p><h3 class="text-lg font-black text-slate-600 dark:text-slate-300" id="kpi-sales">0</h3></div>
+                        <div class="kpi-card glass-input p-4 border-l-4 border-l-retro-teal/60 opacity-90"><p class="text-[9px] md:text-[10px] text-slate-500 font-bold uppercase mb-1">Today Received</p><h3 class="text-lg font-black text-slate-600 dark:text-slate-300" id="kpi-received">0</h3></div>
+                        <div class="kpi-card glass-input p-4 border-l-4 border-l-retro-rose/60 opacity-90"><p class="text-[9px] md:text-[10px] text-retro-rose/80 font-bold uppercase mb-1">Today Returns</p><h3 class="text-lg font-black text-retro-rose" id="kpi-returns">0</h3></div>
+                    </div>
+                </div>
+                <div class="glass-panel p-4 md:p-6 flex flex-col liquid-hover" id="stockAlertsDashboard">
+                    <div class="flex justify-between items-center mb-4 border-b border-slate-200/50 pb-3">
+                        <h2 class="text-lg md:text-xl font-extrabold flex items-center gap-2"><span class="p-1.5 bg-white/60 dark:bg-white/10 rounded-lg shadow-sm">🚨</span> Stock Alerts</h2>
+                        <select id="dashboardAlertCategory" onchange="renderDashboardAlerts()" class="glass-input p-2.5 text-xs font-bold text-center shadow-sm cursor-pointer w-40"><option value="ALL">All Categories</option></select>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="glass-input bg-retro-rose/5 p-3 rounded-xl border border-retro-rose/20 flex flex-col h-64">
+                            <h3 class="text-[10px] font-black text-retro-rose uppercase flex justify-between mb-2 px-2"><span>📉 Low Stock (≤20)</span><span class="text-[9px] bg-retro-rose/20 px-2 py-0.5 rounded-full" id="dashLowCount">0</span></h3>
+                            <div id="dashLowList" class="overflow-y-auto custom-scrollbar flex-1 px-1 space-y-2"></div>
+                        </div>
+                        <div class="glass-input bg-retro-teal/5 p-3 rounded-xl border border-retro-teal/20 flex flex-col h-64">
+                            <h3 class="text-[10px] font-black text-retro-teal uppercase flex justify-between mb-2 px-2"><span>📈 High Stock (>50)</span><span class="text-[9px] bg-retro-teal/20 px-2 py-0.5 rounded-full" id="dashHighCount">0</span></h3>
+                            <div id="dashHighList" class="overflow-y-auto custom-scrollbar flex-1 px-1 space-y-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MASTER CATALOG -->
+            <div id="section-items" class="nav-section" style="display: none;">
+                <div id="masterCard" class="glass-panel overflow-hidden flex flex-col h-[calc(100vh-8rem)] min-h-[40rem]">
+                    <div class="p-4 md:p-6 border-b border-slate-200/50 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white/30 dark:bg-black/10 shrink-0">
+                        <div class="flex items-center gap-3"><div class="p-2 bg-white/60 dark:bg-white/10 rounded-xl"><span class="text-xl">🗄️</span></div><div><h2 class="text-lg font-extrabold tracking-tight">Master Catalog</h2><p class="text-[9px] font-bold uppercase" id="catalogCountLabel">Loading...</p></div></div>
+                        <div class="flex flex-col gap-3 w-full xl:w-auto">
+                            <div class="flex flex-col sm:flex-row gap-2 w-full"><select id="masterCategoryFilter" onchange="filterTable()" class="glass-input p-2.5 text-xs font-bold text-center cursor-pointer"><option value="ALL">All Categories</option></select><input type="text" id="searchInput" onkeyup="filterTable()" placeholder="🔍 Search catalog..." class="glass-input p-2.5 text-xs text-center flex-1 font-medium"></div>
+                            <div class="flex flex-col md:flex-row gap-2 glass-input p-1.5 shadow-sm admin-only-section"><input type="text" id="newCategory" placeholder="Category" class="p-2 text-xs w-full md:w-28 bg-transparent outline-none text-center border-b md:border-b-0 md:border-r border-slate-300 font-bold"><input type="text" id="newNames" placeholder="Product Name (comma-separated)" class="p-2 text-xs w-full bg-transparent outline-none font-medium border-b md:border-b-0 border-slate-300"><input type="text" id="newImage" placeholder="🔗 Image URL" class="p-2 text-xs w-full bg-transparent outline-none" onkeypress="if(event.key === 'Enter') addMasterProduct()"><button onclick="addMasterProduct()" class="bg-gradient-to-r from-retro-slate to-indigo-500 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-md shrink-0">Add</button></div>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar p-2">
+                        <table class="w-full text-left border-collapse min-w-[500px]"><thead class="sticky top-0 glass-panel z-10 shadow-sm"><tr class="uppercase text-[9px] tracking-widest font-black"><th class="p-3 cursor-pointer" onclick="sortTable('category')">Category ↕</th><th class="p-3 cursor-pointer" onclick="sortTable('name')">Product Name ↕</th><th class="p-3 text-center text-retro-teal bg-retro-teal/5 cursor-pointer" onclick="sortTable('stockQty')">Current Stock ↕</th><th class="p-3 text-center w-24 staff-admin-section">Actions</th></tr></thead><tbody id="inventoryBody" class="text-xs font-medium"></tbody></table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRICING -->
+            <div id="section-pricing" class="nav-section" style="display: none;">
+                <div class="glass-panel flex flex-col h-[calc(100vh-8rem)] min-h-[40rem] overflow-hidden">
+                    <div class="p-4 border-b border-slate-200/50 flex flex-col xl:flex-row justify-between bg-white/30 shrink-0 gap-4"><div class="flex items-center gap-3"><div class="p-2 bg-retro-mustard/10 rounded-xl"><span class="text-xl">💰</span></div><div><h2 class="text-lg font-extrabold">Product Pricing</h2><p class="text-[9px] font-bold uppercase" id="pricingCountLabel">Loading...</p></div></div><div class="flex flex-col sm:flex-row gap-2 w-full xl:w-auto"><select id="pricingCategoryFilter" onchange="filterPricingTable()" class="glass-input p-2.5 text-xs font-bold text-center cursor-pointer"><option value="ALL">All Categories</option></select><input type="text" id="pricingSearchInput" onkeyup="filterPricingTable()" placeholder="🔍 Search product..." class="glass-input p-2.5 text-xs text-center flex-1 font-medium"></div></div>
+                    <div class="overflow-y-auto flex-1 p-3 custom-scrollbar" id="pricingBody"></div>
+                </div>
+            </div>
+
+            <!-- DISPATCH ORDERS -->
+            <div id="section-orders" class="nav-section" style="display: none;">
+                <div class="glass-panel flex flex-col h-[calc(100vh-8rem)] min-h-[40rem] overflow-hidden">
+                    <div class="p-4 border-b border-slate-200/50 flex flex-col xl:flex-row justify-between bg-white/30 shrink-0 gap-4">
+                        <div class="flex items-center gap-3 shrink-0"><div class="p-2 bg-retro-mustard/10 rounded-xl"><span class="text-xl">📦</span></div><div><h2 class="text-lg font-extrabold">Dispatch Orders</h2><p class="text-[9px] font-bold uppercase" id="orderCountLabel">0 Orders</p></div></div>
+                        <div class="flex flex-col w-full xl:w-[32rem] gap-2">
+                            <div class="flex gap-2 glass-input p-1.5 shadow-sm items-center"><input type="text" id="newOrderItem" placeholder="Item Name" list="catalogItemList" class="p-2 text-xs w-full bg-transparent outline-none border-r border-slate-300 font-bold" onkeypress="if(event.key === 'Enter') document.getElementById('newOrderQty').focus()"><datalist id="catalogItemList"></datalist><input type="number" id="newOrderQty" placeholder="Qty" class="p-2 text-xs w-20 bg-transparent outline-none border-r border-slate-300 font-bold" onkeypress="if(event.key === 'Enter') addOrderToQueue()"><button onclick="addOrderToQueue()" class="bg-gradient-to-r from-retro-slate to-indigo-500 text-white px-3 py-2 rounded-xl text-[10px] font-black uppercase shadow-md shrink-0">Add</button></div>
+                            <div id="orderQueueContainer" style="display:none;" class="glass-input p-2.5 rounded-xl border border-retro-mustard/30 flex flex-col gap-2"><div class="text-[9px] font-black text-retro-mustard uppercase px-1">Order Queue:</div><div id="orderQueueList" class="flex flex-col gap-1 max-h-32 overflow-y-auto custom-scrollbar px-1"></div><div class="flex flex-col gap-2 mt-2 pt-2 border-t border-slate-300/50"><div class="flex gap-2"><input type="text" id="newOrderCust" placeholder="Customer / Party Name" class="p-2 text-xs flex-1 bg-white/70 dark:bg-slate-800 rounded-lg outline-none font-bold shadow-inner"><input type="text" id="newOrderRemarks" placeholder="Remarks" class="p-2 text-xs flex-1 bg-white/70 dark:bg-slate-800 rounded-lg outline-none font-bold shadow-inner"></div><button onclick="submitDispatchOrder()" class="w-full bg-gradient-to-r from-retro-mustard to-amber-500 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase shadow-md hover:opacity-90">Submit Complete Order ✅</button></div></div>
+                        </div>
+                    </div>
+                    <div class="overflow-y-auto flex-1 p-3 custom-scrollbar" id="ordersBody"></div>
+                </div>
+            </div>
+
+            <!-- GR / DEFECTIVE -->
+            <div id="section-gr-log" class="nav-section" style="display: none;">
+                <div class="glass-panel flex flex-col h-[calc(100vh-8rem)] min-h-[40rem] overflow-hidden">
+                    <div class="p-4 border-b border-slate-200/50 flex flex-col xl:flex-row justify-between bg-white/30 shrink-0 gap-4">
+                        <div class="flex items-center gap-3 shrink-0"><div class="p-2 bg-retro-rose/10 rounded-xl"><span class="text-xl">♻️</span></div><div><h2 class="text-lg font-extrabold">GR / Defective Log</h2><p class="text-[9px] font-bold uppercase" id="grCountLabel">0 Entries</p></div></div>
+                        <div class="flex flex-col w-full xl:w-[32rem] gap-2"><div class="flex sm:flex-row flex-col gap-2 glass-input p-1.5 shadow-sm items-center"><input type="text" id="newGrItem" placeholder="Defective Item Name" list="catalogItemList" class="p-2 text-xs w-full bg-transparent outline-none sm:border-r border-slate-300 font-bold"><div class="flex w-full sm:w-auto gap-2"><input type="number" id="newGrQty" placeholder="Qty" class="p-2 text-xs w-20 bg-transparent outline-none sm:border-r border-slate-300 font-bold"><input type="text" id="newGrReason" placeholder="Reason" class="p-2 text-xs flex-1 sm:w-32 bg-transparent outline-none sm:border-r border-slate-300 font-bold" onkeypress="if(event.key === 'Enter') addGrEntry()"><button onclick="addGrEntry()" class="bg-gradient-to-r from-retro-rose to-red-500 text-white px-3 py-2 rounded-xl text-[10px] font-black uppercase shrink-0">Log</button></div></div></div>
+                    </div>
+                    <div class="overflow-y-auto flex-1 p-3 custom-scrollbar" id="grBody"></div>
+                </div>
+            </div>
+
+            <!-- MFP DAMAGE -->
+            <div id="section-mfp-damage" class="nav-section" style="display: none;">
+                <div class="glass-panel flex flex-col h-[calc(100vh-8rem)] min-h-[40rem] overflow-hidden">
+                    <div class="p-4 border-b border-slate-200/50 flex flex-col xl:flex-row justify-between bg-white/30 shrink-0 gap-4">
+                        <div class="flex items-center gap-3 shrink-0"><div class="p-2 bg-retro-mustard/10 rounded-xl"><span class="text-xl">🏭</span></div><div><h2 class="text-lg font-extrabold">MFP Damage</h2><p class="text-[9px] font-bold uppercase" id="mfpCountLabel">0 Entries</p></div></div>
+                        <div class="flex flex-col w-full xl:w-[32rem] gap-2">
+                            <div class="flex gap-2 glass-input p-1.5 shadow-sm items-center"><input type="text" id="newMfpItem" placeholder="Damage Item Name" list="catalogItemList" class="p-2 text-xs w-full bg-transparent outline-none border-r border-slate-300 font-bold" onkeypress="if(event.key === 'Enter') document.getElementById('newMfpQty').focus()"><input type="number" id="newMfpQty" placeholder="Qty" class="p-2 text-xs w-20 bg-transparent outline-none border-r border-slate-300 font-bold" onkeypress="if(event.key === 'Enter') addMfpToQueue()"><button onclick="addMfpToQueue()" class="bg-gradient-to-r from-retro-mustard to-amber-500 text-white px-3 py-2 rounded-xl text-[10px] font-black uppercase shadow-md shrink-0">Add</button></div>
+                            <div id="mfpQueueContainer" style="display:none;" class="glass-input p-2.5 rounded-xl border border-retro-mustard/30 flex flex-col gap-2"><div class="text-[9px] font-black text-retro-mustard uppercase px-1">MFP Queue:</div><div id="mfpQueueList" class="flex flex-col gap-1 max-h-32 overflow-y-auto custom-scrollbar px-1"></div><div class="flex flex-col gap-2 mt-2 pt-2 border-t border-slate-300/50"><input type="text" id="newMfpReason" placeholder="Reason for this group" class="p-2 text-xs w-full bg-white/70 dark:bg-slate-800 rounded-lg outline-none font-bold shadow-inner"><button onclick="submitMfpGroup()" class="w-full bg-gradient-to-r from-retro-mustard to-amber-500 text-white px-4 py-2.5 rounded-xl text-[10px] font-black uppercase shadow-md hover:opacity-90">Submit MFP Group ✅</button></div></div>
+                        </div>
+                    </div>
+                    <div class="overflow-y-auto flex-1 p-3 custom-scrollbar" id="mfpBody"></div>
+                </div>
+            </div>
+
+            <!-- STOCK ENTRIES -->
+            <div id="section-entries" class="nav-section space-y-6" style="display: none;">
+                <div class="glass-input px-4 py-2 flex gap-3 text-[10px] text-slate-500 font-bold no-print"><span>💡 Tips:</span><span><span class="kbd">↑↓</span> dropdown</span><span><span class="kbd">Enter</span> select</span><span><span class="kbd">Ctrl+Enter</span> submit</span></div>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <!-- FACTORY / VENDOR IN-OUT -->
+                    <div class="glass-panel p-4 md:p-6 flex flex-col h-auto xl:h-[calc(100vh-12rem)] min-h-[45rem]">
+                        <div class="flex justify-between items-center mb-4 border-b border-slate-200/50 pb-3 shrink-0"><div class="flex items-center gap-3"><div class="p-2 bg-retro-teal/10 rounded-lg"><span class="text-lg">🏭</span></div><div><h2 class="text-base font-extrabold text-retro-teal">Factory / Stock In-Out</h2><span class="text-[8px] text-slate-500 uppercase font-black">Receive or Return to Mfr</span></div></div><button onclick="clearWhBatch()" class="text-[9px] text-retro-rose font-black uppercase opacity-60 hover:opacity-100" style="display: none;" id="clearWhBtn">Clear All ✕</button></div>
+                        <div class="flex flex-col gap-3 shrink-0">
+                            <select id="warehouseAction" style="display: none;" onchange="updatePreview('wh')"></select><div id="whRadioGroup" class="mb-2"></div>
+                            <div class="relative w-full" id="whDropdownContainer"><input type="text" id="whSelect" oninput="filterDropdown('whSelect', 'whList'); updatePreview('wh')" onfocus="openDropdown('whList')" placeholder="🔍 Scan Barcode or Type Name..." autocomplete="off" class="glass-input w-full p-3 text-xs shadow-sm border-retro-teal/40"><ul id="whList" style="display: none;" class="absolute z-50 w-full mt-2 glass-panel max-h-56 overflow-y-auto py-2 custom-scrollbar flex-col font-medium"></ul></div>
+                            <div class="flex flex-col sm:flex-row gap-3"><input type="number" id="whQty" oninput="updatePreview('wh')" placeholder="Qty" min="1" class="glass-input w-full md:w-24 p-3 text-sm font-mono text-center font-bold shadow-sm"><input type="text" id="whPlatform" placeholder="Ref/Challan No." class="glass-input w-full md:w-1/3 p-3 text-sm shadow-sm"><input type="text" id="whComment" placeholder="Remarks" class="glass-input w-full flex-1 p-3 text-sm shadow-sm"></div>
+                            <div id="whComboPreview" style="display: none;" class="mt-1 p-3 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-xl border border-white/20 text-xs font-bold shadow-inner"></div>
+                            <button onclick="addTowhBatch()" class="glass-btn font-bold px-4 py-3 rounded-xl text-[10px] uppercase shadow-sm mt-1 flex justify-center gap-2">Add to Queue <span class="kbd">↵</span></button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto mt-4 glass-input p-2 custom-scrollbar rounded-xl border-dashed min-h-[12rem]" id="whBatchContainer"></div>
+                        <button onclick="submitWhBatch()" id="btnSubmitWh" class="mt-4 bg-gradient-to-r from-retro-teal to-emerald-500 text-white font-black py-3.5 rounded-xl text-xs uppercase shadow-lg hover:opacity-90 shrink-0" style="display: none;">✅ Submit Stock Batch</button>
+                    </div>
+                    <!-- SALES & RETURNS -->
+                    <div class="glass-panel p-4 md:p-6 flex flex-col h-auto xl:h-[calc(100vh-12rem)] min-h-[45rem]">
+                        <div class="flex justify-between items-center mb-4 border-b border-slate-200/50 pb-3 shrink-0"><div class="flex items-center gap-3"><div class="p-2 bg-retro-slate/10 rounded-lg"><span class="text-lg">🛒</span></div><div><h2 class="text-base font-extrabold text-retro-slate">Sales & Returns</h2><span class="text-[8px] text-slate-500 uppercase font-black">Customer Orders</span></div></div><button onclick="clearSlBatch()" class="text-[9px] text-retro-rose font-black uppercase opacity-60 hover:opacity-100" style="display: none;" id="clearSlBtn">Clear All ✕</button></div>
+                        <div class="flex flex-col gap-3 shrink-0">
+                            <select id="salesAction" style="display: none;" oninput="updatePreview('sl')"><option value="SALE" selected>SALE</option><option value="CUST_RETURN">CUST_RETURN</option></select><div id="slRadioGroup" class="mb-2"></div>
+                            <div class="relative w-full" id="slDropdownContainer"><input type="text" id="slSelect" oninput="filterDropdown('slSelect', 'slList'); updatePreview('sl')" onfocus="openDropdown('slList')" placeholder="🔍 Scan Barcode or Type Name..." autocomplete="off" class="glass-input w-full p-3 text-xs shadow-sm border-retro-slate/40"><ul id="slList" style="display: none;" class="absolute z-50 w-full mt-2 glass-panel max-h-56 overflow-y-auto py-2 custom-scrollbar flex-col font-medium"></ul></div>
+                            <div class="flex flex-col sm:flex-row gap-3"><input type="number" id="slQty" oninput="updatePreview('sl')" placeholder="Qty" min="1" class="glass-input w-full md:w-24 p-3 text-sm font-mono text-center font-bold shadow-sm"><input type="text" id="slPlatform" placeholder="Platform (Amazon/Meesho)" class="glass-input w-full md:w-1/3 p-3 text-sm shadow-sm"><input type="text" id="slComment" placeholder="Order ID" class="glass-input w-full flex-1 p-3 text-sm shadow-sm"></div>
+                            <div id="slComboPreview" style="display: none;" class="mt-1 p-3 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-xl border border-white/20 text-xs font-bold shadow-inner"></div>
+                            <button onclick="addToSlBatch()" class="glass-btn font-bold px-4 py-3 rounded-xl text-[10px] uppercase shadow-sm mt-1 flex justify-center gap-2">Add to Queue <span class="kbd">↵</span></button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto mt-4 glass-input p-2 custom-scrollbar rounded-xl border-dashed min-h-[12rem]" id="slBatchContainer"></div>
+                        <button onclick="submitSlBatch()" id="btnSubmitSl" class="mt-4 bg-gradient-to-r from-retro-slate to-indigo-600 text-white font-black py-3.5 rounded-xl text-xs uppercase shadow-lg hover:opacity-90 shrink-0" style="display: none;">✅ Submit Sales Batch</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HISTORY -->
+            <div id="section-history" class="nav-section space-y-6" style="display: none;">
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="glass-panel flex flex-col p-2 h-[calc(100vh-10rem)] min-h-[40rem]"><div class="p-4 border-b border-slate-200/50 flex flex-col gap-3 shrink-0"><div class="flex justify-between items-center"><h2 class="text-xs font-black text-retro-teal uppercase flex gap-2"><span>🏭</span> Factory / Stock Logs</h2><span id="whLogCount" class="text-[9px] bg-retro-teal/20 text-retro-teal px-2 py-0.5 rounded-full font-black">0</span></div><input type="text" id="whFilter" onkeyup="filterHistory('whFilter', 'whHistoryContainer')" placeholder="🔍 Search logs..." class="glass-input w-full p-2.5 text-xs text-center italic"></div><div id="whHistoryContainer" class="flex-1 overflow-y-auto p-2 custom-scrollbar"></div></div>
+                    <div class="glass-panel flex flex-col p-2 h-[calc(100vh-10rem)] min-h-[40rem]"><div class="p-4 border-b border-slate-200/50 flex flex-col gap-3 shrink-0"><div class="flex justify-between items-center"><h2 class="text-xs font-black text-retro-slate uppercase flex gap-2"><span>📈</span> Sales & Return Logs</h2><span id="slLogCount" class="text-[9px] bg-retro-slate/20 text-retro-slate px-2 py-0.5 rounded-full font-black">0</span></div><input type="text" id="slFilter" onkeyup="filterHistory('slFilter', 'slHistoryContainer')" placeholder="🔍 Search logs..." class="glass-input w-full p-2.5 text-xs text-center italic"></div><div id="slHistoryContainer" class="flex-1 overflow-y-auto p-2 custom-scrollbar"></div></div>
+                </div>
+            </div>
+
+            <!-- VIEWER -->
+            <div id="section-viewer" class="nav-section space-y-6" style="display: none;">
+                <div class="glass-panel p-4 md:p-6 no-print shrink-0">
+                    <div class="flex items-center justify-between mb-4 border-b border-slate-200/50 pb-3"><div class="flex items-center gap-3"><div class="p-1.5 bg-retro-slate/10 rounded-lg"><span class="text-xl">📡</span></div><h2 class="text-lg font-extrabold tracking-tight">Live Radar</h2></div><button onclick="printViewer()" class="glass-btn px-3 py-2 text-[10px] font-black uppercase rounded-xl flex items-center gap-1.5 no-print">🖨️ Print</button></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div><label class="block text-[9px] font-black text-slate-500 mb-1.5 uppercase">Search</label><input type="text" id="viewerSearch" oninput="renderViewerTable()" placeholder="Type to search..." class="glass-input w-full p-2.5 text-xs text-center italic"></div>
+                        <div><label class="block text-[9px] font-black text-slate-500 mb-1.5 uppercase">Category</label><select id="viewerCategory" onchange="renderViewerTable()" class="glass-input w-full p-2.5 text-xs cursor-pointer font-bold text-center"><option value="ALL">All Categories</option></select></div>
+                        <div><label class="block text-[9px] font-black text-slate-500 mb-1.5 uppercase">Stock Status</label><select id="viewerStatus" onchange="renderViewerTable()" class="glass-input w-full p-2.5 text-xs cursor-pointer font-bold text-center"><option value="ALL">All Items</option><option value="INSTOCK">🟢 In Stock</option><option value="LOWSTOCK">🟠 Low Stock (≤20)</option><option value="OUTOFSTOCK">🔴 Out of Stock</option></select></div>
+                        <div><label class="block text-[9px] font-black text-slate-500 mb-1.5 uppercase">Sort By</label><select id="viewerSort" onchange="renderViewerTable()" class="glass-input w-full p-2.5 text-xs cursor-pointer font-bold text-center"><option value="NAME_ASC">Name (A-Z)</option><option value="NAME_DESC">Name (Z-A)</option><option value="STOCK_DESC">Stock (High→Low)</option><option value="STOCK_ASC">Stock (Low→High)</option></select></div>
+                    </div>
+                </div>
+                <div class="glass-panel overflow-hidden flex flex-col h-[calc(100vh-16rem)] min-h-[40rem]">
+                    <div class="p-4 border-b border-slate-200/50 bg-white/30 shrink-0 flex justify-between items-center"><h3 class="text-xs font-black uppercase">Results: <span id="viewerResultCount" class="text-retro-slate text-sm">0</span></h3><span class="text-[9px] font-bold uppercase" id="viewerLastUpdate"></span></div>
+                    <div class="overflow-y-auto flex-1 custom-scrollbar p-3" id="viewerBody"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- MODALS -->
+<div id="exportModal" style="display: none;" class="fixed inset-0 z-[10005] items-center justify-center p-4 modal-overlay backdrop-blur-md bg-white/30"><div class="glass-panel p-6 md:p-8 w-[28rem] animate-fade-in-up"><h3 class="text-lg font-black mb-4 border-b border-slate-200/50 pb-3 uppercase flex gap-3"><span class="p-2 bg-retro-slate/10 rounded-lg">📤</span> Export Data</h3><div class="space-y-4"><div><label class="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">Category</label><select id="exportCategory" class="glass-input w-full p-3 text-xs font-bold"><option value="ALL">All Categories</option></select></div><div class="grid grid-cols-2 gap-4"><div><label class="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">Start Date</label><input type="date" id="exportStartDate" class="glass-input w-full p-3 text-xs"></div><div><label class="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">End Date</label><input type="date" id="exportEndDate" class="glass-input w-full p-3 text-xs"></div></div></div><div class="flex justify-end gap-3 mt-8"><button onclick="closeExportModal()" class="glass-btn px-6 py-2.5 text-xs font-black uppercase rounded-xl">Cancel</button><button onclick="executeExport()" class="bg-gradient-to-r from-retro-slate to-indigo-500 text-white px-6 py-2.5 text-xs font-black uppercase rounded-xl shadow-md hover:-translate-y-1">📥 Download</button></div></div></div>
+
+<div id="editMasterModal" style="display: none;" class="fixed inset-0 z-[10005] items-center justify-center p-4 modal-overlay backdrop-blur-md bg-white/30">
+    <div class="glass-panel p-6 md:p-8 w-[28rem] animate-fade-in-up">
+        <h3 class="text-lg font-black mb-4 border-b border-slate-200/50 pb-3 uppercase flex gap-3"><span class="p-2 bg-slate-500/10 rounded-lg">✏️</span> Edit Item</h3>
+        <input type="hidden" id="editMasterId">
+        <div class="space-y-4">
+            <div><label class="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">Name</label><input type="text" id="editMasterName" class="glass-input w-full p-3 text-sm font-bold"></div>
+            <div><label class="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">Category</label><input type="text" id="editMasterCategory" class="glass-input w-full p-3 text-sm font-bold" list="editCategoryList"><datalist id="editCategoryList"></datalist></div>
+            <div><label class="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">Image Source</label><input type="text" id="editMasterImage" class="glass-input w-full p-3 text-sm font-medium"></div>
+            <div class="p-4 glass-input bg-white/50 border-dashed rounded-xl">
+                <label class="block text-[10px] font-black text-retro-teal mb-1.5 uppercase text-center">Available Stock</label>
+                <input type="number" id="editMasterStock" class="glass-input w-full p-3 text-xl font-mono text-center text-retro-teal font-black" min="0">
+            </div>
+        </div>
+        <div class="flex justify-end gap-3 mt-6"><button onclick="closeEditMasterModal()" class="glass-btn px-6 py-2.5 text-xs font-black uppercase rounded-xl">Cancel</button><button onclick="saveEditMaster()" class="bg-slate-800 text-white px-6 py-2.5 text-xs font-black uppercase rounded-xl shadow-md">💾 Save</button></div>
+    </div>
+</div>
+
+<div id="editHistoryModal" style="display: none;" class="fixed inset-0 z-[10005] items-center justify-center p-4 modal-overlay backdrop-blur-md bg-white/30"><div class="glass-panel p-6 md:p-8 w-[28rem] animate-fade-in-up"><h3 class="text-lg font-black mb-4 border-b border-slate-200/50 pb-3 uppercase flex gap-3"><span class="p-2 bg-retro-mustard/10 rounded-lg">🖋️</span> Edit Log</h3><input type="hidden" id="editHistoryId"><div class="p-3 mb-4 glass-input bg-retro-mustard/10 border-retro-mustard/20 rounded-xl"><p id="editHistoryItemName" class="text-[10px] font-bold text-retro-mustard uppercase text-center"></p></div><div class="space-y-4"><div><label class="block text-[10px] font-black text-slate-500 mb-1.5 uppercase text-center">Quantity</label><input type="number" id="editHistoryQty" class="glass-input w-full p-4 text-2xl font-mono text-center font-black" min="1"></div><div><label class="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">Ref No.</label><input type="text" id="editHistoryPlatform" class="glass-input w-full p-3 text-sm font-bold"></div><div><label class="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">Remarks</label><input type="text" id="editHistoryComment" class="glass-input w-full p-3 text-sm italic"></div></div><div class="flex justify-end gap-3 mt-6"><button onclick="closeEditHistoryModal()" class="glass-btn px-6 py-2.5 text-xs font-black uppercase rounded-xl">Cancel</button><button onclick="saveEditHistory()" class="bg-gradient-to-r from-retro-mustard to-orange-500 text-white px-6 py-2.5 text-xs font-black uppercase rounded-xl shadow-md">💾 Save</button></div></div></div>
+
+<div id="editPriceModal" style="display: none;" class="fixed inset-0 z-[10005] items-center justify-center p-4 modal-overlay backdrop-blur-md bg-white/30"><div class="glass-panel p-6 md:p-8 w-[24rem] animate-fade-in-up"><h3 class="text-lg font-black mb-4 border-b border-slate-200/50 pb-3 uppercase flex gap-3"><span class="p-2 bg-retro-mustard/10 rounded-lg">💵</span> Edit Price</h3><input type="hidden" id="editPriceId"><div class="space-y-4"><div class="p-3 mb-2 glass-input bg-white/50 rounded-xl"><p id="editPriceItemName" class="text-[11px] font-bold text-center"></p></div><div><label class="block text-[10px] font-black text-retro-mustard mb-1.5 uppercase text-center">New Price (₹)</label><input type="number" id="editPriceValue" class="glass-input w-full p-4 text-2xl font-mono text-center font-black text-retro-mustard" min="0" step="0.01"></div></div><div class="flex justify-end gap-3 mt-6"><button onclick="closeEditPriceModal()" class="glass-btn px-6 py-2.5 text-xs font-black uppercase rounded-xl">Cancel</button><button onclick="saveEditPrice()" class="bg-gradient-to-r from-retro-mustard to-amber-500 text-white px-6 py-2.5 text-xs font-black uppercase rounded-xl shadow-md">💾 Save</button></div></div></div>
+
+<div id="batchLedgerModal" style="display: none;" class="fixed inset-0 z-[10005] items-center justify-center p-4 modal-overlay backdrop-blur-md bg-white/30 overflow-y-auto"><div class="glass-panel p-6 md:p-8 w-[36rem] animate-fade-in-up my-auto"><div class="flex justify-between items-center border-b border-slate-200/50 pb-3 mb-6"><h3 class="text-xl font-black uppercase flex gap-3"><span class="p-2 bg-retro-mustard/10 rounded-lg">⚡</span> Batch Entry</h3><button onclick="closeBatchLedgerModal()" class="text-retro-rose font-bold text-lg hover:scale-125 px-1">✕</button></div><div class="space-y-5"><div><label class="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">1️⃣ Pick Action</label><select id="bulkLedgerActionSelect" class="glass-input w-full p-3 text-sm font-bold cursor-pointer bg-white/80 dark:bg-slate-800"></select></div><div class="glass-input p-4 rounded-xl bg-white/50"><div class="flex items-center gap-2 mb-1.5 font-black text-xs uppercase"><span>2️⃣</span> Download Sheet</div><div class="flex gap-2 mt-3"><button onclick="downloadLedgerTemplate('empty')" class="glass-btn flex-1 py-2.5 text-[10px] font-black uppercase rounded-lg">📄 4-Col Blank</button><button onclick="downloadLedgerTemplate('prefilled')" class="bg-gradient-to-r from-retro-slate to-indigo-500 text-white flex-1 py-2.5 text-[10px] font-black uppercase rounded-lg shadow-md hover:opacity-90">📋 Prefilled</button></div></div><div class="glass-input p-4 rounded-xl bg-white/50 border-retro-teal/30"><div class="flex items-center gap-2 mb-3 font-black text-xs uppercase text-retro-teal"><span>3️⃣</span> Upload</div><input type="file" id="ledgerExcelFileInput" accept=".xlsx, .xls" class="hidden" onchange="executeLedgerExcelUpload(event)"><button onclick="document.getElementById('ledgerExcelFileInput').click()" class="w-full bg-gradient-to-r from-retro-teal to-emerald-500 text-white font-black py-3 rounded-xl shadow-md hover:opacity-90 uppercase text-xs flex justify-center gap-2"><span>📤</span> Process Batch</button></div></div></div></div>
+
+<div id="batchReportModal" style="display: none;" class="fixed inset-0 z-[10020] items-center justify-center p-4 modal-overlay backdrop-blur-md bg-white/40"><div class="glass-panel p-6 md:p-8 w-[38rem] max-h-[85vh] flex flex-col animate-fade-in-up border-2 border-retro-rose/30"><div class="flex justify-between items-center border-b border-slate-200/50 pb-3 mb-4 shrink-0"><h3 class="text-lg md:text-xl font-black uppercase flex gap-2"><span>📑</span> Report</h3><button onclick="closeBatchReportModal()" class="text-retro-rose font-black text-2xl hover:scale-125 px-2 bg-retro-rose/10 rounded-lg">✕</button></div><div class="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1.5"><div class="p-3.5 rounded-xl bg-retro-teal/15 border border-retro-teal/30 text-retro-teal font-black text-xs md:text-sm flex justify-between items-center"><span>📦 Successful Entries:</span><span id="repSuccessCount" class="font-mono text-lg bg-retro-teal text-white px-2.5 py-0.5 rounded shadow">0</span></div><div id="repFailSection" class="hidden space-y-2"><div class="text-[10px] font-black text-retro-rose uppercase flex justify-between items-center bg-retro-rose/10 p-2 rounded-lg"><span>⚠️ Failed:</span><span id="repFailCount" class="font-mono bg-retro-rose text-white px-2 py-0.5 rounded text-xs">0</span></div><div id="repErrorsList" class="space-y-1.5 pt-1"></div></div></div><div class="mt-5 pt-3 border-t border-slate-200/50 flex justify-end shrink-0"><button onclick="closeBatchReportModal()" class="bg-gradient-to-r from-retro-slate to-slate-800 text-white px-6 py-2.5 text-xs font-black uppercase rounded-xl shadow-md">Dismiss</button></div></div></div>
+
+<script>
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxeoBCmW_deXt5rZS4_o5TGh-9eval13KKhMmidf9eSRLbF2UyWLTOGs-MCzxqY_2HE0A/exec"; 
+    
+    let currentRole = null;
+    let inventory = [], historyLog = [], dispatchOrders = [], pendingWh = [], pendingSl = [], pendingOrderItems = [], pendingMfpItems = [], uniqueCategories = [], grLogs = [];
+    let sortConfig = { key: 'createdAt', dir: 'asc' };
+    let viewMode = localStorage.getItem('dozy_view') || 'comfortable';
+    let lastSaveTime = 0;
+
+    const syncChannel = new BroadcastChannel('dozy_sync_channel');
+    syncChannel.onmessage = (event) => { if (event.data === 'data_updated' && currentRole) loadData(true); };
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedRole = localStorage.getItem('dozy_current_role');
+        if (savedRole) { currentRole = savedRole; if (currentRole === 'guest') guestLogin(); else grantAccess(); }
+    });
+
+    setInterval(() => { if (currentRole && (Date.now() - lastSaveTime > 12000)) loadData(true); }, 15000);
+
+    function manualRefresh() { showToast('Fetching latest data...', 'info', 1500); loadData(false); }
+    function showToast(m, t = 'success', d = 3000) { const i = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' }; const c = document.getElementById('toastContainer'); const el = document.createElement('div'); el.className = `toast ${t}`; el.innerHTML = `<span class="toast-icon">${i[t]}</span><span class="toast-msg">${m}</span>`; c.appendChild(el); setTimeout(() => { el.classList.add('fade-out'); setTimeout(() => el.remove(), 300); }, d); }
+    function showConfirm(t, m, oT = 'Confirm', oC = 'from-retro-rose to-red-500', i = '⚠️') { return new Promise(r => { document.getElementById('confirmTitle').innerText = t; document.getElementById('confirmMsg').innerText = m; document.getElementById('confirmIcon').innerText = i; const btn = document.getElementById('confirmOk'); btn.innerText = oT; btn.className = `flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl text-white shadow-md transition-all hover:-translate-y-0.5 bg-gradient-to-r ${oC}`; document.getElementById('customConfirmModal').style.display = 'flex'; const clean = res => { document.getElementById('customConfirmModal').style.display = 'none'; r(res); }; btn.onclick = () => clean(true); document.getElementById('confirmCancel').onclick = () => clean(false); }); }
+
+    function updateClock() { const n = new Date(); document.getElementById('liveClockTime').innerText = n.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }); document.getElementById('liveClockDate').innerText = n.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }); }
+    setInterval(updateClock, 1000); updateClock();
+
+    function toggleTheme() { document.documentElement.classList.toggle('dark'); localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); }
+    if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+    function toggleViewMode() { viewMode = viewMode === 'comfortable' ? 'compact' : 'comfortable'; localStorage.setItem('dozy_view', viewMode); saveAndRender(false); }
+
+    function navigateSection(id) { document.querySelectorAll('.nav-section').forEach(el => el.style.display = 'none'); document.querySelectorAll('.sidebar-btn').forEach(el => el.classList.remove('sidebar-active')); document.getElementById(`section-${id}`).style.display = 'block'; const active = document.getElementById(`nav-${id}`); if(active) active.classList.add('sidebar-active'); if (window.innerWidth < 1024) closeMobileSidebar(); if (id === 'viewer') document.getElementById('viewerLastUpdate').innerText = `Updated: ${new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}`; }
+    function openMobileSidebar() { const s = document.getElementById('sidebar'); s.classList.remove('-translate-x-[120%]'); s.classList.add('translate-x-0'); document.getElementById('sidebarBackdrop').style.display = 'block'; }
+    function closeMobileSidebar() { const s = document.getElementById('sidebar'); if (window.innerWidth < 1024) { s.classList.add('-translate-x-[120%]'); s.classList.remove('translate-x-0'); } document.getElementById('sidebarBackdrop').style.display = 'none'; }
+
+    function attemptLogin() {
+        const role = document.querySelector('input[name="loginRole"]:checked').value, passBase64 = btoa(document.getElementById('loginPassword').value);
+        // Passwords: admin = 1253, staff = 110085 or 110039
+        const _encP = { admin: "MTI1Mw==", staff1: "MTEwMDg1", staff2: "MTEwMDM5" };
+        if (role === 'admin' && passBase64 === _encP.admin) { currentRole = 'admin'; grantAccess(); }
+        else if (role === 'staff' && (passBase64 === _encP.staff1 || passBase64 === _encP.staff2)) { currentRole = 'staff'; grantAccess(); }
+        else { document.getElementById('loginError').style.display = 'block'; }
+    }
+    
+    function guestLogin() { currentRole = 'guest'; localStorage.setItem('dozy_current_role', 'guest'); document.getElementById('loginOverlay').style.display = 'none'; document.getElementById('mainApp').style.display = 'flex'; document.getElementById('userRoleBadge').innerText = 'Viewer'; document.querySelectorAll('.admin-only-section, .staff-admin-only, .staff-admin-section').forEach(el => el.style.display = 'none'); ['dashboard','entries','history','orders','items','pricing'].forEach(id => document.getElementById(`nav-${id}`).style.display = 'none'); document.getElementById('nav-viewer').style.display = 'flex'; navigateSection('viewer'); loadData(); }
+
+    function logout() { currentRole = null; localStorage.removeItem('dozy_current_role'); document.getElementById('loginPassword').value = ''; document.getElementById('mainApp').style.display = 'none'; document.getElementById('loginOverlay').style.display = 'flex'; document.querySelectorAll('.admin-only-section, .staff-admin-only, .staff-admin-section').forEach(el => el.style.display = ''); ['dashboard','entries','history','orders','items','pricing'].forEach(id => document.getElementById(`nav-${id}`).style.display = ''); }
+
+    function createRadioBtn(n, v, l, c, t, col) { const tgt = t === 'wh' ? 'warehouseAction' : 'salesAction'; return `<label class="flex-1 cursor-pointer"><input type="radio" name="${n}" value="${v}" class="peer hidden" ${c ? 'checked' : ''} onchange="document.getElementById('${tgt}').value=this.value; updatePreview('${t}');"><div class="h-full flex items-center justify-center text-center px-2 py-2.5 rounded-lg text-[10px] font-bold peer-checked:bg-white dark:peer-checked:bg-slate-800 peer-checked:text-${col} shadow-sm text-slate-500 border border-transparent peer-checked:border-${col}/20">${l}</div></label>`; }
+
+    function grantAccess() {
+        localStorage.setItem('dozy_current_role', currentRole);
+        document.getElementById('loginError').style.display = 'none'; document.getElementById('loginOverlay').style.display = 'none'; document.getElementById('mainApp').style.display = 'flex'; document.getElementById('userRoleBadge').innerText = currentRole;
+        const whSel = document.getElementById('warehouseAction'), whRad = document.getElementById('whRadioGroup'), slSel = document.getElementById('salesAction'), slRad = document.getElementById('slRadioGroup'), bulkSel = document.getElementById('bulkLedgerActionSelect');
+        
+        // Single Location Operations Setup
+        whSel.innerHTML = `<option value="MFR_RECEIVE" selected>MFR_RECEIVE</option><option value="MFR_RETURN">MFR_RETURN</option>`;
+        whRad.innerHTML = `<div class="grid grid-cols-2 gap-2 w-full p-1 bg-white/40 dark:bg-black/30 rounded-xl">${createRadioBtn('whAct', 'MFR_RECEIVE', '📥 Stock In (Receive)', true, 'wh', 'retro-teal')}${createRadioBtn('whAct', 'MFR_RETURN', '📤 Stock Out (Return to Mfr)', false, 'wh', 'retro-rose')}</div>`;
+        
+        slSel.innerHTML = `<option value="SALE" selected>SALE</option><option value="CUST_RETURN">CUST_RETURN</option>`;
+        slRad.innerHTML = `<div class="grid grid-cols-2 gap-2 w-full p-1 bg-white/40 dark:bg-black/30 rounded-xl">${createRadioBtn('slAct', 'SALE', '📤 Sale (Dispatch)', true, 'sl', 'retro-slate')}${createRadioBtn('slAct', 'CUST_RETURN', '🔄 Customer Return', false, 'sl', 'retro-teal')}</div>`;
+        
+        bulkSel.innerHTML = `<optgroup label="SALES & RETURNS"><option value="SALE">📤 Sale (Stock Out)</option><option value="CUST_RETURN">🔄 Customer Return (Stock In)</option></optgroup><optgroup label="FACTORY / VENDOR"><option value="MFR_RECEIVE">📥 Receive Stock (Stock In)</option><option value="MFR_RETURN">📤 Return to Mfr (Stock Out)</option></optgroup>`;
+
+        if (currentRole === 'admin') {
+            document.querySelectorAll('.admin-only-section, .staff-admin-only, .staff-admin-section').forEach(el => el.style.display = '');
+        } else {
+            document.querySelectorAll('.admin-only-section').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.staff-admin-only, .staff-admin-section').forEach(el => el.style.display = '');
+        }
+        navigateSection('dashboard'); loadData();
+    }
+
+    function setupKeyboardNav(iId, lId) {
+        const inp = document.getElementById(iId); let cur = -1;
+        inp.addEventListener("input", () => cur = -1);
+        inp.addEventListener("keydown", (e) => {
+            const list = document.getElementById(lId); if (list.style.display === 'none') return;
+            let items = Array.from(list.getElementsByTagName("li")).filter(li => li.style.display !== "none");
+            if (e.key === "ArrowDown") { cur++; addActive(items); e.preventDefault(); }
+            else if (e.key === "ArrowUp") { cur--; addActive(items); e.preventDefault(); }
+            else if (e.key === "Enter") { e.preventDefault(); if (cur > -1) items[cur].click(); else if (items.length) items[0].click(); }
+            else if (e.key === "Escape") list.style.display = 'none';
+        });
+        function addActive(i) { if(!i.length) return; i.forEach(x => x.classList.remove("keyboard-focus")); if (cur >= i.length) cur = 0; if (cur < 0) cur = i.length - 1; i[cur].classList.add("keyboard-focus"); i[cur].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+    }
+    setupKeyboardNav('whSelect', 'whList'); setupKeyboardNav('slSelect', 'slList');
+    ['whQty', 'whPlatform', 'whComment'].forEach(id => { document.getElementById(id).addEventListener('keypress', e => { if (e.key === 'Enter') addTowhBatch(); }); });
+    ['slQty', 'slPlatform', 'slComment'].forEach(id => { document.getElementById(id).addEventListener('keypress', e => { if (e.key === 'Enter') addToSlBatch(); }); });
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'Enter' && document.getElementById('section-entries').style.display !== 'none') {
+            if (document.getElementById('btnSubmitWh').style.display !== 'none') submitWhBatch();
+            if (document.getElementById('btnSubmitSl').style.display !== 'none') submitSlBatch();
+        }
+        if (e.key === 'Escape') ['exportModal', 'editMasterModal', 'editHistoryModal', 'batchLedgerModal', 'batchReportModal', 'editPriceModal'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    });
+    
+    function formatIndianDate(v) { return (!v || !v.includes('T')) ? v : new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }); }
+    function formatIndianTime(v) { return (!v || !v.includes('T')) ? v : new Date(v).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }); }
+    function getFormattedRealTime() { const d = new Date(); return { dateString: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), timeString: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) }; }
+
+    // UNIVERSAL COMBO DETECTOR HELPER
+    function getComboBases(item) {
+        if(!item || !item.name) return [];
+        let numbers = [];
+        const match = item.name.match(/\(([^)]+)\)/);
+        if (match) numbers = match[1].split(/[+,&]/).map(n => n.trim()).filter(n => n);
+        else if (item.name.includes('+')) numbers = item.name.split('+').map(n => n.trim()).filter(n => n);
+        
+        let bases = [];
+        for (let num of numbers) {
+            const clean = num.trim().toLowerCase();
+            let base = inventory.find(i => {
+                const n = (i.name||'').toLowerCase();
+                return n === clean || n.startsWith(clean + " ") || n.startsWith(clean + "-");
+            });
+            if (!base) {
+                const lM = clean.match(/[a-z]+/i);
+                const nM = clean.match(/[0-9]+/);
+                if (lM && nM) {
+                    base = inventory.find(i => (i.name||'').toLowerCase().includes(lM[0]) && (i.name||'').toLowerCase().includes(nM[0]) && /kitchen|kichen|stationery|stationary/i.test(i.category || ''));
+                }
+            }
+            if (!base) {
+                const numStr = clean.replace(/[^0-9]/g, '');
+                if (numStr) {
+                    const regex = new RegExp('^(' + numStr + '|B' + numStr + ')([^a-zA-Z0-9]|$)', 'i');
+                    base = inventory.find(i => regex.test(i.name||'') && /kitchen|kichen|stationery|stationary/i.test(i.category || ''));
+                }
+            }
+            if (!base) base = inventory.find(i => (i.name||'').toLowerCase().includes(clean) && /kitchen|kichen|stationery|stationary/i.test(i.category || ''));
+            if (base) bases.push(base);
+        }
+        return bases;
+    }
+
+    async function loadData(silent = false) {
+        if (Date.now() - lastSaveTime < 12000 && !silent) return; 
+        const loadingEl = document.getElementById('loadingOverlay'), dotEl = document.getElementById('statusDot'), statusEl = document.getElementById('syncStatus');
+        if(!silent) loadingEl.style.display = 'flex'; 
+        dotEl.className = 'status-dot status-syncing'; statusEl.innerText = "Syncing...";
+        
+        let data = null;
+        try {
+            const res = await fetch(GOOGLE_SHEET_URL);
+            const text = await res.text();
+            data = JSON.parse(text);
+            localStorage.setItem('dozy_db_single_backup', JSON.stringify(data));
+            dotEl.className = 'status-dot status-online'; statusEl.innerText = "Live";
+        } catch (e) {
+            console.warn("Server offline, using local backup.");
+            dotEl.className = 'status-dot status-error'; statusEl.innerText = "Local Mode";
+            const localData = localStorage.getItem('dozy_db_single_backup');
+            if (localData) {
+                try { data = JSON.parse(localData); } catch(ex){}
+            }
+            if (!silent && !data) showToast("Working Offline - Data missing.", 'warning');
+        }
+
+        if (data) {
+            // Backward compatibility: merges stockQty OR (godownQty + officeQty) into a single stockQty
+            inventory = (data.inventory || []).map(i => {
+                const mergedStock = i.stockQty !== undefined ? (parseInt(i.stockQty) || 0) : ((parseInt(i.godownQty) || 0) + (parseInt(i.officeQty) || 0));
+                return { 
+                    id: String(i.id), 
+                    name: String(i.name), 
+                    category: String(i.category||'General'), 
+                    image: String(i.image||''), 
+                    stockQty: mergedStock, 
+                    price: parseFloat(i.price)||0, 
+                    isDiscontinued: i.isDiscontinued===true||i.isDiscontinued==="true", 
+                    createdAt: parseInt(i.createdAt)||Date.now() 
+                };
+            });
+            historyLog = (data.historyLog || []).filter(l => l).map(l => ({ ...l, dateString: formatIndianDate(l.dateString), timeString: formatIndianTime(l.timeString) }));
+            dispatchOrders = (data.baawanOrders || data.dispatchOrders || []).filter(o => o).map(o => ({ ...o, dateString: formatIndianDate(o.dateString), timeString: formatIndianTime(o.timeString) }));
+            grLogs = (data.bawanaGR || data.grLogs || []).filter(g => g).map(g => ({ ...g, dateString: formatIndianDate(g.dateString), timeString: formatIndianTime(g.timeString) }));
+        }
+        
+        setTimeout(() => { if(statusEl.innerText === "Live" || statusEl.innerText === "Local Mode") statusEl.innerText = ""; }, 2000);
+        saveAndRender(false);
+        if(!silent) loadingEl.style.display = 'none'; 
+    }
+
+    function persistData(targetKey) {
+        if (!GOOGLE_SHEET_URL || currentRole === 'guest') return;
+        lastSaveTime = Date.now(); 
+        const dotEl = document.getElementById('statusDot'), statusEl = document.getElementById('syncStatus');
+        dotEl.className = 'status-dot status-syncing'; statusEl.innerText = "Saving...";
+        
+        // Save cleanly to existing sheet schema
+        const mappedInventory = inventory.map(i => ({ ...i, godownQty: i.stockQty, officeQty: 0 }));
+
+        let bodyPayload = {};
+        if (targetKey === 'orders') bodyPayload.baawanOrders = dispatchOrders;
+        else if (targetKey === 'grLogs') bodyPayload.bawanaGR = grLogs;
+        else if (targetKey === 'inventory') bodyPayload.inventory = mappedInventory;
+        else if (targetKey === 'historyLog') bodyPayload.historyLog = historyLog;
+        else bodyPayload = { inventory: mappedInventory, historyLog, baawanOrders: dispatchOrders, bawanaGR: grLogs };
+
+        try {
+            let localDb = JSON.parse(localStorage.getItem('dozy_db_single_backup') || '{}');
+            Object.assign(localDb, bodyPayload);
+            localStorage.setItem('dozy_db_single_backup', JSON.stringify(localDb));
+        } catch(e){}
+
+        fetch(GOOGLE_SHEET_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(bodyPayload) })
+        .then(() => { dotEl.className = 'status-dot status-online'; statusEl.innerText = "Saved"; setTimeout(() => statusEl.innerText = "", 1500); syncChannel.postMessage('data_updated'); })
+        .catch(() => { dotEl.className = 'status-dot status-error'; statusEl.innerText = "Local Saved"; });
+    }
+
+    function extractCategories() {
+        uniqueCategories = [...new Set(inventory.map(i => i.category || 'General'))].sort();
+        const updateSel = (id, cur) => { const el = document.getElementById(id); if(!el) return; el.innerHTML = '<option value="ALL">All Categories</option>' + uniqueCategories.map(c => `<option value="${c}">${c}</option>`).join(''); if(Array.from(el.options).some(o => o.value === cur)) el.value = cur; else el.value = 'ALL'; };
+        updateSel('viewerCategory', document.getElementById('viewerCategory').value); 
+        updateSel('exportCategory', document.getElementById('exportCategory').value); 
+        updateSel('masterCategoryFilter', document.getElementById('masterCategoryFilter') ? document.getElementById('masterCategoryFilter').value : 'ALL'); 
+        updateSel('pricingCategoryFilter', document.getElementById('pricingCategoryFilter') ? document.getElementById('pricingCategoryFilter').value : 'ALL'); 
+        updateSel('dashboardAlertCategory', document.getElementById('dashboardAlertCategory').value); 
+        
+        const dl = document.getElementById('editCategoryList'); if(dl) { dl.innerHTML = uniqueCategories.map(c => `<option value="${c}"></option>`).join(''); }
+        const bList = document.getElementById('catalogItemList'); if(bList) { bList.innerHTML = inventory.filter(i=>!i.isDiscontinued).map(i => `<option value="${i.name}"></option>`).join(''); }
+    }
+
+    function saveAndRender(triggerSave = true, targetKey = null) {
+        inventory.sort((a, b) => { 
+            let va = a[sortConfig.key], vb = b[sortConfig.key]; 
+            if (sortConfig.key === 'name' || sortConfig.key === 'category') return sortConfig.dir === 'asc' ? String(va||'').localeCompare(String(vb||'')) : String(vb||'').localeCompare(String(va||'')); 
+            return sortConfig.dir === 'asc' ? (va||0) - (vb||0) : (vb||0) - (va||0); 
+        });
+        
+        if (triggerSave) persistData(targetKey);
+        extractCategories(); 
+        
+        renderTable(); if (document.getElementById('searchInput') && document.getElementById('searchInput').value) filterTable();
+        renderPricingTable(); if (document.getElementById('pricingSearchInput') && document.getElementById('pricingSearchInput').value) filterPricingTable();
+        renderCustomDropdowns(); 
+        if (document.getElementById('whSelect') && document.getElementById('whSelect').value) filterDropdown('whSelect', 'whList');
+        if (document.getElementById('slSelect') && document.getElementById('slSelect').value) filterDropdown('slSelect', 'slList');
+        
+        renderHistory(); 
+        if (document.getElementById('whFilter') && document.getElementById('whFilter').value) filterHistory('whFilter', 'whHistoryContainer');
+        if (document.getElementById('slFilter') && document.getElementById('slFilter').value) filterHistory('slFilter', 'slHistoryContainer');
+        
+        renderDispatchOrders();
+        renderGrLog();
+        renderMfpDamage();
+        
+        if (['admin','staff'].includes(currentRole)) updateDashboard();
+        renderViewerTable();
+        document.getElementById('catalogCountLabel').innerText = `${inventory.length} Products`;
+    }
+
+    // GR / DEFECTIVE - Single Records
+    function addGrEntry() {
+        const item = document.getElementById('newGrItem').value.trim(), qty = parseInt(document.getElementById('newGrQty').value) || 0, reason = document.getElementById('newGrReason').value.trim() || 'Defective/Damaged';
+        if (!item || qty <= 0) { showToast('Valid Qty required.', 'warning'); return; }
+        const invItem = inventory.find(i => i.name.toLowerCase() === item.toLowerCase()); if (!invItem) return showToast(`Not found.`, 'error');
+        if (!getComboBases(invItem).length && invItem.stockQty < qty) return showToast('Insufficient stock!', 'error');
+
+        invItem.stockQty -= qty;
+        const { dateString, timeString } = getFormattedRealTime();
+        grLogs.unshift({ id: "GR-" + Date.now().toString().slice(-5) + Math.random().toString(36).substr(2, 2), dateString, timeString, item, qty, reason, user: currentRole });
+        historyLog.unshift({ id: Date.now().toString() + Math.random().toString(36).substr(2, 5), dateString, timeString, name: item, action: 'GR_DEFECTIVE', actionText: 'GR / Defective', qty, platform: 'GR Log', comment: reason, user: currentRole });
+        
+        document.getElementById('newGrItem').value = ''; document.getElementById('newGrQty').value = ''; document.getElementById('newGrReason').value = '';
+        saveAndRender(true); showToast('GR Logged & Stock Deducted', 'success');
+    }
+
+    function renderGrLog() {
+        const tbody = document.getElementById('grBody');
+        const grData = grLogs.filter(g => !g.reason || !g.reason.includes('[MFP Damage]'));
+        if (document.getElementById('grCountLabel')) document.getElementById('grCountLabel').innerText = `${grData.length} Entries`;
+
+        if (!grData.length) { tbody.innerHTML = `<div class="empty-state"><div class="empty-icon">♻️</div><p>No GR Records</p></div>`; return; }
+
+        tbody.innerHTML = grData.map(gr => `
+            <div class="glass-input p-3 mb-3 flex flex-col md:flex-row justify-between md:items-center gap-3 border-l-4 border-retro-rose shadow-sm rounded-xl">
+                <div class="flex flex-col">
+                    <div class="font-extrabold text-sm">${gr.item}</div>
+                    <div class="text-[9px] text-slate-500 font-bold uppercase">${gr.dateString} ${gr.timeString}</div>
+                    <div class="text-xs text-slate-600 italic mt-1">Reason: ${gr.reason}</div>
+                </div>
+                <div class="flex items-center gap-3 justify-between md:justify-end">
+                    <span class="font-mono font-black text-sm text-retro-rose bg-retro-rose/10 px-3 py-1 rounded-lg shadow-inner">Qty: ${gr.qty}</span>
+                    <button onclick="deleteGr('${gr.id}', '${gr.item.replace(/'/g, "\\'")}', ${gr.qty})" class="admin-only-section glass-btn text-retro-rose p-2 text-[10px] rounded-lg shadow-sm">🗑️</button>
+                </div>
+            </div>`).join('');
+        if(currentRole !== 'admin') document.querySelectorAll('#grBody .admin-only-section').forEach(el => el.style.display = 'none');
+    }
+    
+    function deleteGr(id, itemName, qty) {
+        if (currentRole !== 'admin') return;
+        showConfirm('Delete Log', `Restore ${qty} units of "${itemName}" to stock?`, 'Restore', 'from-retro-rose to-red-500', '🗑️').then(ok => {
+            if (ok) {
+                grLogs = grLogs.filter(g => g.id !== id);
+                const invItem = inventory.find(i => i.name === itemName);
+                if (invItem) invItem.stockQty += qty;
+                saveAndRender(true); showToast('Restored', 'success');
+            }
+        });
+    }
+
+    // MFP DAMAGE - GROUPED LOGIC
+    function addMfpToQueue() {
+        const item = document.getElementById('newMfpItem').value.trim(), qty = parseInt(document.getElementById('newMfpQty').value) || 0;
+        if (!item || qty <= 0) { showToast('Valid Qty required.', 'warning'); return; }
+        const invItem = inventory.find(i => i.name.toLowerCase() === item.toLowerCase()); if (!invItem) return showToast(`Not found.`, 'error');
+        if (!getComboBases(invItem).length && invItem.stockQty < qty) return showToast('Insufficient stock!', 'error');
+
+        pendingMfpItems.push({ item, qty });
+        document.getElementById('newMfpItem').value = ''; document.getElementById('newMfpQty').value = '';
+        renderMfpQueue();
+    }
+    
+    function renderMfpQueue() {
+        const c = document.getElementById('mfpQueueContainer'), l = document.getElementById('mfpQueueList');
+        if(!pendingMfpItems.length) { c.style.display = 'none'; return; }
+        c.style.display = 'flex';
+        l.innerHTML = pendingMfpItems.map((p, i) => `<div class="flex justify-between items-center text-xs p-2 bg-white/50 dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 mb-1"><span>${p.item}</span><div><span class="font-bold font-mono mr-3">Qty: ${p.qty}</span><button onclick="removeMfpQueue(${i})" class="text-retro-rose font-bold text-sm">✕</button></div></div>`).join('');
+    }
+    
+    function removeMfpQueue(i) { pendingMfpItems.splice(i, 1); renderMfpQueue(); }
+
+    function submitMfpGroup() {
+        if(!pendingMfpItems.length) return;
+        const reason = document.getElementById('newMfpReason').value.trim() || 'MFP Damage Group';
+        const groupId = "MFP-GRP-" + Date.now().toString().slice(-5) + Math.random().toString(36).substr(2, 2);
+        const { dateString, timeString } = getFormattedRealTime();
+        
+        pendingMfpItems.forEach(p => {
+            const invItem = inventory.find(i => i.name === p.item);
+            if(invItem) invItem.stockQty -= p.qty;
+            grLogs.unshift({ id: Date.now().toString() + Math.random().toString(36).substr(2, 3), groupId, dateString, timeString, item: p.item, qty: p.qty, reason: "[MFP Damage] " + reason, user: currentRole });
+            historyLog.unshift({ id: Date.now().toString() + Math.random().toString(36).substr(2, 5), dateString, timeString, name: p.item, action: 'MFP_DAMAGE', actionText: 'MFP Damage', qty: p.qty, platform: 'MFP Group', comment: reason, user: currentRole });
+        });
+        pendingMfpItems = []; document.getElementById('newMfpReason').value = ''; renderMfpQueue();
+        saveAndRender(true); showToast('MFP Group Submitted', 'success');
+    }
+
+    function renderMfpDamage() {
+        const tbody = document.getElementById('mfpBody');
+        const mfpData = grLogs.filter(g => g.reason && g.reason.includes('[MFP Damage]'));
+        if (document.getElementById('mfpCountLabel')) document.getElementById('mfpCountLabel').innerText = `${mfpData.length} Items`;
+        
+        if (!mfpData.length) { tbody.innerHTML = `<div class="empty-state"><div class="empty-icon">🏭</div><p>No MFP Records Found</p></div>`; return; }
+
+        const grouped = {};
+        mfpData.forEach(m => { const gId = m.groupId || m.id; if(!grouped[gId]) grouped[gId] = []; grouped[gId].push(m); });
+
+        let htmlStr = '<div class="flex flex-col gap-4">';
+        for (const [gId, items] of Object.entries(grouped)) {
+            const first = items[0], totalQty = items.reduce((sum, i) => sum + i.qty, 0), reasonText = first.reason.replace('[MFP Damage]', '').trim() || 'Damage';
+            
+            htmlStr += `
+            <div class="bg-white/40 dark:bg-black/20 shadow-sm border border-slate-300 dark:border-slate-700 rounded-xl overflow-hidden mb-1">
+                <div class="p-3 hover:bg-white/80 dark:hover:bg-white/10 transition-colors cursor-pointer flex justify-between items-center" onclick="toggleMfpGroup('${gId}')">
+                    <div class="flex items-center gap-3">
+                        <span id="mfp-icon-${gId}" class="text-xs transition-transform inline-block text-slate-500">▶</span>
+                        <div><div class="font-black text-sm text-retro-mustard">${gId}</div><div class="text-[9px] text-slate-500 font-bold uppercase">${first.dateString} ${first.timeString}</div></div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span class="font-mono font-black text-sm text-slate-700 dark:text-white bg-black/5 px-2 py-0.5 rounded shadow-inner">${totalQty} Qty</span>
+                        <button onclick="event.stopPropagation(); deleteMfpGroup('${gId}')" class="admin-only-section glass-btn text-retro-rose p-1.5 text-[10px] rounded-lg">🗑️</button>
+                    </div>
+                </div>
+                <div id="mfp-group-${gId}" class="hidden bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 p-3 flex flex-col gap-2">
+                    <div class="text-xs italic text-slate-600 dark:text-slate-400 mb-1">Reason: ${reasonText}</div>
+                    ${items.map(m => `
+                        <div class="flex justify-between items-center bg-white/60 dark:bg-slate-800 p-2 rounded-lg border-l-2 border-retro-mustard shadow-sm">
+                            <span class="text-xs font-bold">${m.item}</span>
+                            <div class="flex items-center gap-3"><span class="font-mono font-bold text-sm">Qty: ${m.qty}</span><button onclick="deleteMfpSingle('${m.id}')" class="admin-only-section text-retro-rose font-bold px-1 text-xs">✕</button></div>
+                        </div>`).join('')}
+                </div>
+            </div>`;
+        }
+        tbody.innerHTML = htmlStr + '</div>';
+        if(currentRole !== 'admin') document.querySelectorAll('#mfpBody .admin-only-section').forEach(el => el.style.display = 'none');
+    }
+
+    window.toggleMfpGroup = function(gId) {
+        const row = document.getElementById(`mfp-group-${gId}`), icon = document.getElementById(`mfp-icon-${gId}`);
+        if (row.classList.contains('hidden')) { row.classList.remove('hidden'); icon.style.transform = 'rotate(90deg)'; } 
+        else { row.classList.add('hidden'); icon.style.transform = 'rotate(0deg)'; }
+    };
+
+    async function deleteMfpSingle(id) {
+        if (currentRole !== 'admin') return;
+        const entry = grLogs.find(g => g.id === id); if(!entry) return;
+        const ok = await showConfirm('Remove Item', `Restore ${entry.qty} units of "${entry.item}"?`, 'Restore', 'from-retro-rose to-red-500', '🗑️');
+        if (ok) {
+            grLogs = grLogs.filter(g => g.id !== id);
+            const invItem = inventory.find(i => i.name === entry.item);
+            if (invItem) invItem.stockQty += entry.qty;
+            saveAndRender(true); showToast(`Item restored.`, 'success');
+        }
+    }
+    
+    async function deleteMfpGroup(gId) {
+        if (currentRole !== 'admin') return;
+        const ok = await showConfirm('Delete Group', `Delete entire group and restore stock?`, 'Delete All', 'from-retro-rose to-red-600', '🚨');
+        if (ok) {
+            const itemsToRestore = grLogs.filter(g => (g.groupId || g.id) === gId);
+            itemsToRestore.forEach(entry => {
+                const invItem = inventory.find(i => i.name === entry.item);
+                if (invItem) invItem.stockQty += entry.qty;
+            });
+            grLogs = grLogs.filter(g => (g.groupId || g.id) !== gId);
+            saveAndRender(true); showToast(`Group deleted & stock restored.`, 'success');
+        }
+    }
+
+    // DISPATCH ORDERS LOGIC
+    function addOrderToQueue() {
+        const item = document.getElementById('newOrderItem').value.trim(), qty = parseInt(document.getElementById('newOrderQty').value) || 0;
+        if (!item || qty <= 0) { showToast('Item Name and valid Qty required.', 'warning'); return; }
+        pendingOrderItems.push({ item, qty });
+        document.getElementById('newOrderItem').value = ''; document.getElementById('newOrderQty').value = ''; document.getElementById('newOrderItem').focus();
+        renderOrderQueue();
+    }
+
+    function renderOrderQueue() {
+        const container = document.getElementById('orderQueueContainer'), list = document.getElementById('orderQueueList');
+        if (pendingOrderItems.length === 0) { container.style.display = 'none'; return; }
+        container.style.display = 'flex';
+        list.innerHTML = pendingOrderItems.map((p, idx) => `<div class="flex justify-between items-center bg-white/60 dark:bg-slate-800 p-2 rounded-lg text-xs shadow-sm border border-slate-200"><span class="font-bold truncate w-2/3">${p.item}</span><div class="flex items-center gap-2"><span class="font-mono font-black bg-white dark:bg-slate-700 px-2 py-0.5 rounded shadow-inner">${p.qty}</span><button onclick="removeOrderFromQueue(${idx})" class="text-retro-rose font-bold text-sm">✕</button></div></div>`).join('');
+    }
+
+    function removeOrderFromQueue(idx) { pendingOrderItems.splice(idx, 1); renderOrderQueue(); }
+
+    function submitDispatchOrder() {
+        if (pendingOrderItems.length === 0) return;
+        const cust = document.getElementById('newOrderCust').value.trim(), remarks = document.getElementById('newOrderRemarks').value.trim(), { dateString, timeString } = getFormattedRealTime(), orderId = "ORD-" + Date.now().toString().slice(-5) + Math.random().toString(36).substr(2, 2).toUpperCase();
+        const newEntries = pendingOrderItems.map(p => ({ orderId, dateString, timeString, itemName: p.item, qty: p.qty, customer: cust, status: 'Pending', remarks, user: currentRole }));
+        dispatchOrders.unshift(...newEntries.reverse());
+        pendingOrderItems = []; document.getElementById('newOrderCust').value = ''; document.getElementById('newOrderRemarks').value = ''; renderOrderQueue();
+        saveAndRender(true, 'orders'); showToast('Order Submitted!', 'success');
+    }
+
+    function renderDispatchOrders() {
+        const tbody = document.getElementById('ordersBody');
+        const uniqueOrders = new Set(dispatchOrders.map(o => o.orderId)).size;
+        document.getElementById('orderCountLabel').innerText = `${uniqueOrders} Orders`;
+
+        if (dispatchOrders.length === 0) { tbody.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div><p>No Orders Found</p></div>`; return; }
+
+        const grouped = {}; dispatchOrders.forEach(o => { if (!grouped[o.orderId]) grouped[o.orderId] = []; grouped[o.orderId].push(o); });
+
+        let htmlStr = '<div class="flex flex-col gap-4">';
+        for (const [orderId, items] of Object.entries(grouped)) {
+            let overallStatus = items.every(i => i.status === 'Completed') ? 'Completed' : (items.every(i => i.status === 'Cancelled') ? 'Cancelled' : 'Pending');
+            let statusColor = overallStatus === 'Completed' ? 'bg-retro-teal/20 text-retro-teal' : (overallStatus === 'Cancelled' ? 'bg-retro-rose/20 text-retro-rose' : 'bg-retro-mustard/20 text-retro-mustard');
+            const first = items[0], totalQty = items.reduce((sum, i) => sum + i.qty, 0);
+
+            htmlStr += `
+            <div class="bg-white/40 dark:bg-black/20 shadow-sm border border-slate-300 dark:border-slate-700 rounded-xl overflow-hidden mb-1">
+                <div class="p-3 hover:bg-white/80 dark:hover:bg-white/10 transition-colors cursor-pointer flex justify-between items-center gap-3" onclick="toggleOrderGroup('${orderId}')">
+                    <div class="flex items-center gap-3 w-full md:w-auto"><span id="icon-${orderId}" class="text-xs transition-transform inline-block text-slate-500">▶</span><div><div class="font-black text-sm text-retro-slate tracking-widest">${orderId}</div><div class="text-[9px] text-slate-500 font-bold uppercase">${first.dateString} ${first.timeString} | ${first.customer || 'Walk-in / General'}</div></div></div>
+                    <div class="flex items-center gap-4 mt-2 md:mt-0"><span class="font-mono font-black text-sm bg-black/5 px-2 py-0.5 rounded shadow-inner">${totalQty} Qty</span><span class="px-2 py-1 text-[9px] font-black uppercase rounded shadow-sm ${statusColor}">${overallStatus}</span><button onclick="event.stopPropagation(); deleteOrderGroup('${orderId}')" class="admin-only-section glass-btn text-retro-rose p-1.5 text-[10px] rounded-lg shadow-sm">🗑️</button></div>
+                </div>
+                <div id="group-${orderId}" class="hidden bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 p-3 flex flex-col gap-2">
+                    ${first.remarks ? `<div class="text-xs italic text-slate-600 dark:text-slate-400 mb-2">Remarks: ${first.remarks}</div>` : ''}
+                    ${items.map(order => {
+                        let iCol = order.status === 'Completed' ? 'bg-retro-teal/20 text-retro-teal' : (order.status === 'Cancelled' ? 'bg-retro-rose/20 text-retro-rose' : 'bg-retro-mustard/20 text-retro-mustard');
+                        return `
+                        <div class="flex justify-between items-center bg-white/60 dark:bg-slate-800 p-2.5 rounded-lg border-l-2 border-retro-mustard gap-2 shadow-sm">
+                            <div class="text-xs font-bold">${order.itemName}</div>
+                            <div class="flex items-center gap-3 w-auto">
+                                <span class="font-mono font-bold text-sm bg-white/50 dark:bg-slate-700 px-2 py-0.5 rounded">Qty: ${order.qty}</span>
+                                <select onchange="updateOrderStatus('${order.orderId}', '${order.itemName.replace(/'/g, "\\'")}', this.value)" class="glass-input p-1.5 text-[9px] font-black uppercase cursor-pointer outline-none shadow-sm ${iCol.split(' ')[1]}"><option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>⏳ Pending</option><option value="Completed" ${order.status === 'Completed' ? 'selected' : ''}>✅ Completed</option><option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>❌ Cancelled</option></select>
+                                <button onclick="deleteOrderSingleItem('${order.orderId}', '${order.itemName.replace(/'/g, "\\'")}')" class="admin-only-section text-retro-rose bg-retro-rose/10 px-2 py-1 rounded-lg text-[10px] font-bold">✕</button>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+        }
+        tbody.innerHTML = htmlStr + '</div>';
+        if(currentRole !== 'admin') document.querySelectorAll('#section-orders .admin-only-section').forEach(el => el.style.display = 'none');
+    }
+
+    window.toggleOrderGroup = function(orderId) {
+        const row = document.getElementById(`group-${orderId}`), icon = document.getElementById(`icon-${orderId}`);
+        if (row.classList.contains('hidden')) { row.classList.remove('hidden'); icon.style.transform = 'rotate(90deg)'; } 
+        else { row.classList.add('hidden'); icon.style.transform = 'rotate(0deg)'; }
+    };
+
+    function updateOrderStatus(orderId, itemName, newStatus) { const idx = dispatchOrders.findIndex(o => o.orderId === orderId && o.itemName === itemName); if (idx !== -1) { dispatchOrders[idx].status = newStatus; saveAndRender(true, 'orders'); showToast(`Updated`, 'info'); } }
+    async function deleteOrderSingleItem(orderId, itemName) { if (currentRole !== 'admin') return; const ok = await showConfirm('Remove Item', `Remove ${itemName}?`, 'Remove', 'from-retro-rose to-red-500', '🗑️'); if (ok) { dispatchOrders = dispatchOrders.filter(o => !(o.orderId === orderId && o.itemName === itemName)); saveAndRender(true, 'orders'); showToast(`Removed.`, 'success'); } }
+    async function deleteOrderGroup(orderId) { if (currentRole !== 'admin') return; const ok = await showConfirm('Delete Entire Order', `Remove Order ${orderId} completely?`, 'Delete All', 'from-retro-rose to-red-600', '🚨'); if (ok) { dispatchOrders = dispatchOrders.filter(o => o.orderId !== orderId); saveAndRender(true, 'orders'); showToast(`Deleted.`, 'success'); } }
+
+    function sortTable(key) { if (sortConfig.key === key) sortConfig.dir = sortConfig.dir === 'asc' ? 'desc' : 'asc'; else { sortConfig.key = key; sortConfig.dir = 'asc'; } saveAndRender(false); }
+    
+    function renderDashboardAlerts() {
+        const catFilter = document.getElementById('dashboardAlertCategory').value;
+        let filtered = inventory.filter(i => !i.isDiscontinued && !getComboBases(i).length && (catFilter === 'ALL' || (i.category || 'General') === catFilter));
+        
+        const lowList = filtered.filter(i => i.stockQty <= 20).sort((a, b) => a.stockQty - b.stockQty);
+        const highList = filtered.filter(i => i.stockQty > 50).sort((a, b) => b.stockQty - a.stockQty);
+        
+        document.getElementById('dashLowCount').innerText = lowList.length; 
+        document.getElementById('dashHighCount').innerText = highList.length;
+        
+        const build = (arr, col, msg) => !arr.length ? `<div class="empty-state"><p>${msg}</p></div>` : arr.map(i => `<div class="flex justify-between items-center bg-white/50 dark:bg-slate-800/60 p-2.5 rounded-lg shadow-sm border border-${col}/10 cursor-pointer hover:bg-white/80" onclick="navigateSection('entries')"><span class="text-[11px] font-bold truncate pr-2">${i.name}</span><span class="font-mono text-xs font-black text-${col} bg-${col}/10 px-2.5 py-0.5 rounded">${i.stockQty}</span></div>`).join('');
+        document.getElementById('dashLowList').innerHTML = build(lowList, 'retro-rose', 'All Stock Healthy!'); 
+        document.getElementById('dashHighList').innerHTML = build(highList, 'retro-teal', 'No Overstock'); 
+    }
+    
+    function updateDashboard() {
+        const active = inventory.filter(i => !i.isDiscontinued);
+        let totalStock = 0, oos = 0; 
+        active.forEach(i => { totalStock += i.stockQty; if (i.stockQty === 0) oos++; });
+        const tStr = getFormattedRealTime().dateString; let sT = 0, recT = 0, rT = 0;
+        historyLog.forEach(l => { 
+            if (l.dateString === tStr) { 
+                if (l.action === 'SALE') sT += l.qty; 
+                if (l.action === 'MFR_RECEIVE') recT += l.qty; 
+                if (l.action === 'CUST_RETURN') rT += l.qty; 
+            } 
+        });
+        const anim = (id, val) => { const el = document.getElementById(id); if (!el) return; const s = parseInt(el.innerText.replace(/,/g, '')) || 0, d = val - s, t = performance.now(); const step = (n) => { const p = Math.min((n - t) / 600, 1); el.innerText = Math.round(s + d * (p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p)).toLocaleString(); if (p < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); };
+        anim('kpi-products', active.length); anim('kpi-units', totalStock); anim('kpi-oos', oos); anim('kpi-sales', sT); anim('kpi-received', recT); anim('kpi-returns', rT); renderDashboardAlerts();
+    }
+
+    function renderCustomDropdowns() {
+        const buildHtml = (tId, lId) => { 
+            const active = inventory.filter(i => !i.isDiscontinued); 
+            if (!active.length) return `<li class="p-4 text-slate-400 text-xs text-center italic font-bold">Void Signal...</li>`; 
+            return active.map(i => { 
+                const t = i.stockQty, col = t === 0 ? 'text-retro-rose' : t <= 20 ? 'text-retro-mustard' : 'text-retro-teal'; 
+                return `<li data-search="${i.name.toLowerCase()} ${String(i.id).toLowerCase()}" class="p-3 px-4 text-xs dropdown-item border-b border-white/20 hover:bg-white/40 flex justify-between items-center transition-colors rounded-lg mx-1 my-0.5 cursor-pointer" onclick="selectDropdownItem('${tId}', '${lId}', '${i.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')"><span class="font-bold truncate max-w-[70%]">${i.name}</span><span class="text-[10px] ${col} font-mono font-black bg-white/60 dark:bg-slate-800 px-2.5 py-1 rounded shadow-inner whitespace-nowrap">Stock: ${i.stockQty}</span></li>`; 
+            }).join(''); 
+        };
+        document.getElementById('whList').innerHTML = buildHtml('whSelect', 'whList'); document.getElementById('slList').innerHTML = buildHtml('slSelect', 'slList');
+    }
+    
+    function openDropdown(listId) { const list = document.getElementById(listId); list.style.display = 'flex'; Array.from(list.getElementsByTagName('li')).forEach(li => li.style.display = 'flex'); }
+    function selectDropdownItem(inpId, listId, name) { document.getElementById(inpId).value = name; document.getElementById(listId).style.display = 'none'; document.getElementById(inpId === 'whSelect' ? 'whQty' : 'slQty').focus(); updatePreview(inpId === 'whSelect' ? 'wh' : 'sl'); }
+    function filterDropdown(inpId, listId) { const q = document.getElementById(inpId).value.toLowerCase().trim(), list = document.getElementById(listId); let vis = false; Array.from(list.getElementsByTagName('li')).forEach(li => { if (li.innerText.includes('Void Signal')) return; const m = li.getAttribute('data-search').includes(q); li.style.display = m ? 'flex' : 'none'; if (m) vis = true; }); list.style.display = (document.activeElement === document.getElementById(inpId) || q.length > 0) && vis ? 'flex' : 'none'; }
+    document.addEventListener('click', e => { if (!e.target.closest('#whDropdownContainer')) document.getElementById('whList').style.display = 'none'; if (!e.target.closest('#slDropdownContainer')) document.getElementById('slList').style.display = 'none'; });
+    
+    function updatePreview(type) {
+        const isSl = type === 'sl';
+        const name = document.getElementById(isSl ? 'slSelect' : 'whSelect').value.trim();
+        const action = document.getElementById(isSl ? 'salesAction' : 'warehouseAction').value;
+        const previewBox = document.getElementById(isSl ? 'slComboPreview' : 'whComboPreview');
+        const qty = parseInt(document.getElementById(isSl ? 'slQty' : 'whQty').value) || 0;
+        
+        if (!name) return previewBox.style.display = 'none'; 
+        const item = inventory.find(i => i.name.toLowerCase() === name.toLowerCase()); 
+        if (!item) return previewBox.style.display = 'none';
+        
+        const bases = getComboBases(item);
+        if (!bases.length) return previewBox.style.display = 'none';
+        
+        let html = `<div class="mb-1.5 text-retro-mustard uppercase text-[9px] font-black border-b border-white/20 pb-1">Combo Stock Impact:</div>`;
+        for (let b of bases) {
+            let cur = b.stockQty;
+            let isDeduct = ['MFR_RETURN', 'SALE'].includes(action);
+            let nxt = isDeduct ? (cur - qty) : (cur + qty);
+            const col = nxt < 0 ? 'text-retro-rose font-black' : 'text-retro-teal font-black';
+            html += `<div class="flex justify-between items-center mt-1 border-b border-white/10 pb-1"><span class="truncate max-w-[60%] text-[10px]">${b.name}</span><span class="text-[10px]">Stock: ${cur} → <span class="${col} text-xs">${nxt}</span></span></div>`;
+        }
+        previewBox.innerHTML = html; previewBox.style.display = 'block';
+    }
+
+    function addTowhBatch() {
+        const name = document.getElementById('whSelect').value.trim(), qty = parseInt(document.getElementById('whQty').value), act = document.getElementById('warehouseAction').value, pfm = document.getElementById('whPlatform').value.trim(), cmt = document.getElementById('whComment').value.trim();
+        if (!name || isNaN(qty) || qty <= 0) return showToast('Enter name and Qty.', 'warning'); 
+        const item = inventory.find(i => i.name.toLowerCase() === name.toLowerCase()); if (!item) return showToast(`Not found.`, 'error');
+        
+        const actMap = { MFR_RECEIVE: 'Stock In (Receive)', MFR_RETURN: 'Stock Out (Return to Mfr)' };
+        const bases = getComboBases(item); const isCombo = bases.length > 0;
+        
+        if (act === 'MFR_RETURN' && !isCombo && item.stockQty < qty) return showToast(`Insufficient stock!`, 'error');
+        
+        let autoItems = [];
+        if (isCombo && act === 'MFR_RETURN') {
+            for (let b of bases) {
+                if (b.stockQty < qty) return showToast(`Combo item deficit: ${b.name}`, 'error');
+                autoItems.push(b);
+            }
+        }
+        
+        pendingWh.push({ id: item.id, name: item.name, action: act, actionText: actMap[act] || act, qty, platform: pfm, comment: cmt });
+        autoItems.forEach(b => pendingWh.push({ id: b.id, name: b.name, action: act, actionText: `⚡ Auto (${item.name})`, qty, platform: pfm, comment: cmt ? `[Combo: ${item.name}] ${cmt}` : `[Combo: ${item.name}]` }));
+        document.getElementById('whSelect').value = ''; document.getElementById('whQty').value = ''; document.getElementById('whComboPreview').style.display = 'none'; document.getElementById('whSelect').focus(); renderWhBatch(); showToast(`Added to queue.`, 'info', 1000);
+    }
+    
+    function clearWhBatch() { showConfirm('Clear Queue', 'Remove all from queue?', 'Clear', 'from-retro-rose to-red-500', '🗑️').then(ok => { if (ok) { pendingWh = []; renderWhBatch(); } }); }
+    function removeWhBatch(index) { pendingWh.splice(index, 1); renderWhBatch(); }
+    
+    function renderWhBatch() {
+        const c = document.getElementById('whBatchContainer'), btn = document.getElementById('btnSubmitWh'), cb = document.getElementById('clearWhBtn');
+        if (!pendingWh.length) { c.innerHTML = `<div class="empty-state"><p>Queue is empty</p></div>`; btn.style.display = 'none'; cb.style.display = 'none'; return; }
+        btn.style.display = 'block'; cb.style.display = 'block';
+        c.innerHTML = pendingWh.map((p, idx) => { const a = p.actionText.includes('⚡') ? 'opacity-70 scale-[0.98] border-dashed border-l-retro-mustard' : (p.action === 'MFR_RECEIVE' ? 'border-l-retro-teal' : 'border-l-retro-rose'); return `<div class="flex justify-between items-center glass-input p-3 mb-2 rounded-xl border-l-4 ${a} shadow-sm"><div class="flex flex-col"><span class="font-extrabold text-xs">${p.name}</span><span class="text-[8px] text-slate-500 font-black uppercase tracking-widest mt-0.5">${p.actionText}</span></div><div class="flex items-center gap-3"><span class="font-black font-mono text-base bg-white/40 px-2 py-0.5 rounded shadow-inner">${p.qty}</span><button onclick="removeWhBatch(${idx})" class="text-retro-rose hover:scale-125 font-bold">✕</button></div></div>`; }).join('');
+    }
+    
+    function submitWhBatch() {
+        if (!pendingWh.length) return; const { dateString, timeString } = getFormattedRealTime();
+        pendingWh.forEach(p => { 
+            const item = inventory.find(i => i.id === p.id); 
+            if (item) { 
+                if (p.action === 'MFR_RECEIVE') item.stockQty += p.qty; 
+                else if (p.action === 'MFR_RETURN') item.stockQty -= p.qty; 
+                historyLog.unshift({ id: Date.now().toString() + Math.random().toString(36).substr(2), dateString, timeString, name: item.name, action: p.action, actionText: p.actionText, qty: p.qty, platform: p.platform, comment: p.comment, user: currentRole }); 
+            } 
+        });
+        pendingWh = []; renderWhBatch(); saveAndRender(true); showToast(`Stock entries committed!`, 'success');
+    }
+
+    function addToSlBatch() {
+        const name = document.getElementById('slSelect').value.trim(), qty = parseInt(document.getElementById('slQty').value), act = document.getElementById('salesAction').value, pfm = document.getElementById('slPlatform').value.trim(), cmt = document.getElementById('slComment').value.trim();
+        if (!name || isNaN(qty) || qty <= 0) return showToast('Enter name and Qty.', 'warning'); 
+        const item = inventory.find(i => i.name.toLowerCase() === name.toLowerCase()); if (!item) return showToast(`Not found.`, 'error');
+        
+        const actMap = { SALE: 'Sale (Dispatch)', CUST_RETURN: 'Customer Return' };
+        const bases = getComboBases(item); const isCombo = bases.length > 0;
+
+        if (act === 'SALE' && !isCombo && item.stockQty < qty) return showToast(`Insufficient stock!`, 'error');
+        
+        let autoItems = [];
+        if (isCombo) {
+            for (let b of bases) {
+                if (act === 'SALE' && b.stockQty < qty) return showToast(`Combo item deficit: ${b.name}`, 'error');
+                autoItems.push(b);
+            }
+        }
+        
+        pendingSl.push({ id: item.id, name: item.name, action: act, actionText: actMap[act] || act, qty, platform: pfm, comment: cmt });
+        autoItems.forEach(b => pendingSl.push({ id: b.id, name: b.name, action: act, actionText: `⚡ Auto (${item.name})`, qty, platform: pfm, comment: cmt ? `[Combo: ${item.name}] ${cmt}` : `[Combo: ${item.name}]` }));
+        
+        document.getElementById('slSelect').value = ''; document.getElementById('slQty').value = ''; document.getElementById('slComboPreview').style.display = 'none'; document.getElementById('slSelect').focus(); renderSlBatch(); showToast(`Added to queue.`, 'info', 1000);
+    }
+    
+    function clearSlBatch() { showConfirm('Clear Queue', 'Remove all from queue?', 'Clear', 'from-retro-rose to-red-500', '🗑️').then(ok => { if (ok) { pendingSl = []; renderSlBatch(); } }); }
+    function removeSlBatch(index) { pendingSl.splice(index, 1); renderSlBatch(); }
+    
+    function renderSlBatch() {
+        const c = document.getElementById('slBatchContainer'), btn = document.getElementById('btnSubmitSl'), cb = document.getElementById('clearSlBtn');
+        if (!pendingSl.length) { c.innerHTML = `<div class="empty-state"><p>Queue is empty</p></div>`; btn.style.display = 'none'; cb.style.display = 'none'; return; }
+        btn.style.display = 'block'; cb.style.display = 'block';
+        c.innerHTML = pendingSl.map((p, idx) => { const colors = p.action === 'SALE' ? 'border-l-retro-slate text-retro-slate' : 'border-l-retro-teal text-retro-teal'; const a = p.actionText.includes('⚡') ? 'opacity-70 scale-[0.98] border-dashed border-l-retro-mustard' : colors; return `<div class="flex justify-between items-center glass-input p-3 mb-2 rounded-xl border-l-4 ${a} shadow-sm"><div class="flex flex-col"><span class="font-extrabold text-xs">${p.name}</span><span class="text-[8px] font-black uppercase tracking-widest mt-0.5 ${colors.split(' ')[1]}">${p.actionText}</span></div><div class="flex items-center gap-3"><span class="font-black font-mono text-base bg-white/40 px-2 py-0.5 rounded shadow-inner">${p.qty}</span><button onclick="removeSlBatch(${idx})" class="text-retro-rose hover:scale-125 font-bold">✕</button></div></div>`; }).join('');
+    }
+    
+    function submitSlBatch() {
+        if (!pendingSl.length) return; const { dateString, timeString } = getFormattedRealTime();
+        pendingSl.forEach(p => { 
+            const item = inventory.find(i => i.id === p.id); 
+            if (item) { 
+                if (p.action === 'SALE') item.stockQty -= p.qty; 
+                else if (p.action === 'CUST_RETURN') item.stockQty += p.qty; 
+                historyLog.unshift({ id: Date.now().toString() + Math.random().toString(36).substr(2), dateString, timeString, name: item.name, action: p.action, actionText: p.actionText, qty: p.qty, platform: p.platform, comment: p.comment, user: currentRole }); 
+            } 
+        });
+        pendingSl = []; renderSlBatch(); saveAndRender(true); showToast(`Sales entries committed!`, 'success');
+    }
+
+    function renderHistory() {
+        const whLogs = historyLog.filter(l => ['MFR_RECEIVE', 'MFR_RETURN'].includes(l.action));
+        const slLogs = historyLog.filter(l => ['SALE', 'CUST_RETURN'].includes(l.action));
+        document.getElementById('whHistoryContainer').innerHTML = buildHistoryHTML(whLogs, 'wh'); 
+        document.getElementById('slHistoryContainer').innerHTML = buildHistoryHTML(slLogs, 'sl');
+        document.getElementById('whLogCount').innerText = whLogs.length; 
+        document.getElementById('slLogCount').innerText = slLogs.length;
+    }
+    function buildHistoryHTML(logs, type) {
+        if (!logs.length) return `<div class="empty-state"><p>No Records</p></div>`;
+        const grouped = {}; logs.forEach(l => { if (!grouped[l.dateString]) grouped[l.dateString] = []; grouped[l.dateString].push(l); });
+        return Object.keys(grouped).map(date => `<div class="mb-8 date-group"><div class="flex items-center gap-3 mb-4"><div class="h-px bg-slate-300 dark:bg-slate-700 flex-1"></div><span class="text-[9px] font-black bg-white/60 dark:bg-black/50 px-3 py-1.5 rounded-full uppercase shadow-sm">${date}</span><div class="h-px bg-slate-300 dark:bg-slate-700 flex-1"></div></div><div class="grid grid-cols-1 gap-3">` + grouped[date].map(l => { const isIn = ['MFR_RECEIVE', 'CUST_RETURN'].includes(l.action); let b = isIn ? 'border-l-retro-teal' : 'border-l-retro-slate', bg = isIn ? 'bg-retro-teal text-white' : 'bg-retro-slate text-white'; if (l.actionText && l.actionText.includes('⚡ Auto')) b = 'border-l-retro-mustard border-dashed opacity-80'; return `<div class="log-item glass-input p-3 border-l-4 ${b} shadow-sm"><div class="flex justify-between items-start mb-2"><div class="flex items-center gap-1.5"><span class="text-[8px] font-black uppercase px-2 py-1 rounded ${bg}">${l.actionText}</span>${l.user ? `<span class="text-[8px] uppercase font-black text-slate-500">👤 ${l.user}</span>` : ''}</div><div class="flex gap-2 items-center">${currentRole === 'admin' ? `<button onclick="openEditHistoryModal('${l.id}')" class="text-slate-400 hover:text-retro-mustard text-xs">✏️</button>` : ''}<span class="text-[9px] text-slate-500 font-bold bg-white/50 dark:bg-slate-800 px-2 py-0.5 rounded">${l.timeString}</span></div></div><div class="font-extrabold text-xs truncate mb-2 mt-2">${l.name}</div><div class="flex justify-between items-end"><span class="font-mono font-black text-xl">${l.qty} <span class="text-[8px] font-sans uppercase font-bold text-slate-400">UNITS</span></span><div class="flex flex-col items-end gap-1">${l.platform ? `<span class="text-[8px] uppercase font-black bg-white/60 dark:bg-slate-800 px-2 py-1 rounded shadow-inner">${l.platform}</span>` : ''}${l.comment ? `<span class="text-[9px] text-slate-500 truncate max-w-[150px] italic">"${l.comment}"</span>` : ''}</div></div></div>`; }).join('') + `</div></div>`).join('');
+    }
+
+    function addMasterProduct() {
+        if (currentRole !== 'admin') return; const names = document.getElementById('newNames').value, cat = document.getElementById('newCategory').value.trim() || 'General', img = document.getElementById('newImage').value.trim();
+        if (!names.trim()) return showToast('Product Name required.', 'warning'); let added = 0; names.split(',').map(n => n.trim()).filter(n => n).forEach((name, idx) => { if (!inventory.some(i => i.name.toLowerCase() === name.toLowerCase())) { inventory.push({ id: Date.now().toString() + idx + Math.random().toString(36).substr(2, 5), name, category: cat, image: img, stockQty: 0, price: 0, createdAt: Date.now() + idx }); added++; } });
+        document.getElementById('newNames').value = ''; document.getElementById('newImage').value = ''; if (added > 0) { saveAndRender(true, 'inventory'); showToast('Added to catalog.', 'success'); }
+    }
+    
+    function renderTable() {
+        const tbody = document.getElementById('inventoryBody');
+        if (!inventory.length) { tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><p>Catalog Empty</p></div></td></tr>`; return; }
+        const isComp = viewMode === 'compact', tdPad = isComp ? 'p-1.5' : 'p-3', nameTxt = isComp ? 'text-[10px]' : 'text-xs', numTxt = isComp ? 'text-sm' : 'text-lg', btnClass = isComp ? 'p-1 text-[9px]' : 'p-1.5 text-[10px]';
+        tbody.innerHTML = inventory.map(i => {
+            const tQ = i.stockQty, sc = i.isDiscontinued ? 'line-through opacity-50' : '', bg = i.isDiscontinued ? 'bg-slate-200/30' : (tQ === 0 ? 'bg-retro-rose/5' : '');
+            const cS = tQ === 0 ? "text-retro-rose" : (tQ <= 20 ? "text-retro-mustard" : "text-retro-teal");
+            let nH = `<div class="font-extrabold ${nameTxt} ${sc}">${i.name}</div>`; if (i.image) nH = `<a href="${i.image}" target="_blank" class="font-extrabold ${nameTxt} text-retro-slate hover:opacity-70 flex items-center gap-1.5 ${sc}">⎋ ${i.name}</a>`;
+            return `<tr class="hover:bg-white/60 dark:hover:bg-white/5 border-b border-white/40 transition-colors group ${bg}"><td class="${tdPad}"><div class="text-[8px] font-black text-slate-500 uppercase bg-white/60 dark:bg-slate-800 shadow-inner inline-block px-2 py-1 rounded ${sc}">${i.category}</div></td><td class="${tdPad}">${nH}</td><td class="${tdPad} text-center font-mono font-black ${numTxt} ${cS} bg-white/30 dark:bg-white/5 ${sc}">${tQ}</td><td class="${tdPad} text-center lg:opacity-0 lg:group-hover:opacity-100 flex justify-center gap-1.5 staff-admin-section"><button onclick="toggleItemStatus('${i.id}')" class="glass-btn ${btnClass} rounded-lg admin-only-section">${i.isDiscontinued?'✅':'🚫'}</button><button onclick="openEditMasterModal('${i.id}')" class="glass-btn text-retro-slate ${btnClass} rounded-lg">✏️</button><button onclick="confirmDeleteItem('${i.id}', '${i.name.replace(/'/g, "\\'")}')" class="glass-btn text-retro-rose ${btnClass} rounded-lg admin-only-section">✕</button></td></tr>`;
+        }).join('');
+        if(currentRole !== 'admin') document.querySelectorAll('#inventoryBody .admin-only-section').forEach(el => el.style.display = 'none');
+        if(currentRole !== 'admin' && currentRole !== 'staff') document.querySelectorAll('#inventoryBody .staff-admin-section').forEach(el => el.style.display = 'none');
+    }
+    
+    function toggleItemStatus(id) { if (currentRole !== 'admin') return; const item = inventory.find(i => i.id === id); if (item) { item.isDiscontinued = !item.isDiscontinued; saveAndRender(true, 'inventory'); showToast(item.isDiscontinued ? 'Item Discontinued 🚫' : 'Item Activated ✅', 'info'); } }
+    function filterTable() { const q = document.getElementById('searchInput').value.toLowerCase(), cat = document.getElementById('masterCategoryFilter').value; let vis = 0; document.querySelectorAll('#inventoryBody tr').forEach(row => { if (row.cells.length > 1) { const text = row.innerText.toLowerCase(), rowCat = row.cells[0].innerText.trim(), mTxt = text.includes(q), mCat = (cat === 'ALL' || rowCat === cat); row.style.display = (mTxt && mCat) ? '' : 'none'; if (mTxt && mCat) vis++; } }); document.getElementById('catalogCountLabel').innerText = `${vis} / ${inventory.length} Products`; }
+
+    function renderPricingTable() {
+        const tbody = document.getElementById('pricingBody'), active = inventory.filter(i => !i.isDiscontinued);
+        if (!active.length) { tbody.innerHTML = `<div class="empty-state"><p>Catalog Empty</p></div>`; return; }
+        tbody.innerHTML = '<div class="flex flex-col gap-3">' + active.map(i => `<div class="pricing-row glass-input p-3 hover:bg-white/60 flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-l-4 border-retro-mustard shadow-sm rounded-xl"><div class="flex flex-col gap-1"><span class="pricing-cat text-[8px] font-black text-slate-500 uppercase bg-white/60 dark:bg-slate-800 px-2 py-0.5 rounded self-start">${i.category}</span><div class="pricing-name font-extrabold text-sm">${i.name}</div></div><div class="flex items-center gap-3 justify-between sm:justify-end mt-1 sm:mt-0"><div class="text-center font-mono font-black text-lg text-retro-mustard bg-retro-mustard/5 px-3 py-1 rounded-lg">₹${i.price || 0}</div><button onclick="openEditPriceModal('${i.id}')" class="admin-only-section glass-btn text-retro-mustard p-1.5 text-[10px] rounded-lg shadow-sm">✏️ Edit</button></div></div>`).join('') + '</div>';
+        if(currentRole === 'guest') document.querySelectorAll('#pricingBody .admin-only-section').forEach(el => el.style.display = 'none');
+        document.getElementById('pricingCountLabel').innerText = `${active.length} Products`;
+    }
+
+    function filterPricingTable() { const q = document.getElementById('pricingSearchInput').value.toLowerCase(), cat = document.getElementById('pricingCategoryFilter').value; let vis = 0; document.querySelectorAll('#pricingBody .pricing-row').forEach(row => { const text = row.querySelector('.pricing-name').innerText.toLowerCase(), rowCat = row.querySelector('.pricing-cat').innerText.trim(), mTxt = text.includes(q), mCat = (cat === 'ALL' || rowCat === cat); row.style.display = (mTxt && mCat) ? 'flex' : 'none'; if (mTxt && mCat) vis++; }); document.getElementById('pricingCountLabel').innerText = `${vis} Products`; }
+
+    function openEditPriceModal(id) { if(currentRole === 'guest') return; const item = inventory.find(i => i.id === id); if (item) { document.getElementById('editPriceId').value = item.id; document.getElementById('editPriceItemName').innerText = item.name; document.getElementById('editPriceValue').value = item.price || 0; document.getElementById('editPriceModal').style.display = 'flex'; } }
+    function closeEditPriceModal() { document.getElementById('editPriceModal').style.display = 'none'; }
+    function saveEditPrice() { const item = inventory.find(i => i.id === document.getElementById('editPriceId').value); if (item) { item.price = parseFloat(document.getElementById('editPriceValue').value) || 0; closeEditPriceModal(); saveAndRender(true, 'inventory'); showToast('Updated', 'success'); } }
+
+    function renderViewerTable() {
+        const q = document.getElementById('viewerSearch').value.toLowerCase(), cat = document.getElementById('viewerCategory').value, stat = document.getElementById('viewerStatus').value, sort = document.getElementById('viewerSort').value;
+        let f = inventory.filter(i => { if (i.isDiscontinued) return false; const t = i.stockQty, mQ = i.name.toLowerCase().includes(q) || i.id.toLowerCase().includes(q), mC = cat === 'ALL' || (i.category || 'General') === cat; let mS = true; if (stat === 'INSTOCK') mS = t > 20; else if (stat === 'LOWSTOCK') mS = t > 0 && t <= 20; else if (stat === 'OUTOFSTOCK') mS = t === 0; return mQ && mC && mS; });
+        f.sort((a, b) => { if (sort === 'NAME_ASC') return a.name.localeCompare(b.name); if (sort === 'NAME_DESC') return b.name.localeCompare(a.name); if (sort === 'STOCK_DESC') return b.stockQty - a.stockQty; if (sort === 'STOCK_ASC') return a.stockQty - b.stockQty; return 0; });
+        document.getElementById('viewerResultCount').innerText = f.length; const tbody = document.getElementById('viewerBody');
+        if (!f.length) { tbody.innerHTML = `<div class="empty-state"><p>No matches</p></div>`; return; }
+        const isC = viewMode === 'compact', cP = isC ? 'p-2 mb-1.5 gap-2' : 'p-3.5 mb-3 gap-3', nT = isC ? 'text-xs' : 'text-sm', bP = isC ? 'p-1.5' : 'p-2.5', nmT = isC ? 'text-base' : 'text-xl';
+        tbody.innerHTML = f.map(i => { 
+            const t = i.stockQty;
+            const sB = t === 0 ? `<span class="bg-retro-rose/20 text-retro-rose px-2 py-0.5 rounded text-[8px] font-black uppercase">🔴 Out of Stock</span>` : (t <= 20 ? `<span class="bg-retro-mustard/20 text-retro-mustard px-2 py-0.5 rounded text-[8px] font-black uppercase">🟠 Low Stock</span>` : `<span class="bg-retro-teal/20 text-retro-teal px-2 py-0.5 rounded text-[8px] font-black uppercase">🟢 In Stock</span>`);
+            const pB = `<span class="bg-retro-mustard/10 text-retro-mustard px-2 py-0.5 rounded text-[9px] font-black">₹${i.price || 0}</span>`;
+            const nH = i.image ? `<a href="${i.image}" target="_blank" class="font-extrabold ${nT} text-retro-slate flex items-center gap-1">⎋ ${i.name}</a>` : `<div class="font-extrabold ${nT}">${i.name}</div>`;
+            const cS = t === 0 ? "text-retro-rose" : (t <= 20 ? "text-retro-mustard" : "text-retro-teal");
+            const bC = t <= 20 ? 'border-retro-rose' : 'border-retro-teal'; 
+            return `<div class="glass-input ${cP} hover:bg-white/60 dark:hover:bg-white/5 flex flex-col sm:flex-row justify-between sm:items-center border-l-4 ${bC} shadow-sm rounded-xl">
+                <div class="flex flex-col w-full sm:w-2/3 gap-1">
+                    <div class="flex items-center gap-2 flex-wrap"><span class="text-[8px] font-black text-slate-500 uppercase bg-white/60 dark:bg-slate-800 px-2 py-0.5 rounded">${i.category}</span>${sB}${pB}</div>
+                    ${nH}
+                </div>
+                <div class="flex items-center justify-between sm:justify-end w-full sm:w-1/3 mt-2 sm:mt-0">
+                    <div class="flex flex-col items-center min-w-[100px] bg-slate-400/10 border border-slate-400/20 rounded-xl ${bP}">
+                        <span class="text-[8px] font-black text-slate-500 uppercase mb-0.5">Available Stock</span>
+                        <span class="font-mono font-black ${nmT} ${cS}">${t}</span>
+                    </div>
+                </div>
+            </div>`; 
+        }).join('');
+    }
+
+    function filterHistory(iId, cId) { const q = document.getElementById(iId).value.toLowerCase(); document.getElementById(cId).querySelectorAll('.date-group').forEach(g => { let vis = false; g.querySelectorAll('.log-item').forEach(i => { const m = i.innerText.toLowerCase().includes(q); i.style.display = m ? '' : 'none'; if (m) vis = true; }); g.style.display = vis ? '' : 'none'; }); }
+    async function confirmDeleteItem(id, name) { if (currentRole !== 'admin') return; const ok = await showConfirm('Delete Product', `Remove "${name}"?`, 'Delete', 'from-retro-rose to-red-500', '🗑️'); if (ok) { inventory = inventory.filter(i => i.id !== id); saveAndRender(true, 'inventory'); showToast(`Removed.`, 'success'); } }
+    async function confirmClearAll() { if (currentRole !== 'admin') return; const ok = await showConfirm('System Reset', 'Delete ALL data permanently?', 'WIPE ALL', 'from-retro-rose to-red-700', '🚨'); if (ok) { inventory = []; historyLog = []; dispatchOrders = []; grLogs = []; saveAndRender(true); showToast('System wiped.', 'warning'); } }
+    function openExportModal() { document.getElementById('exportModal').style.display = 'flex'; } function closeExportModal() { document.getElementById('exportModal').style.display = 'none'; }
+    
+    function executeExport() {
+        const catFilter = document.getElementById('exportCategory').value;
+        let filteredInv = catFilter !== 'ALL' ? inventory.filter(i => (i.category || 'General') === catFilter) : inventory;
+        const invData = filteredInv.map(i => ({ "Product ID": i.id, "Category": i.category || "General", "Item Name": i.name, "Price (₹)": i.price || 0, "Available Stock": i.stockQty, "Discontinued": i.isDiscontinued ? 'Yes' : 'No' }));
+        const histData = historyLog.map(h => ({ "Log ID": h.id, "User": h.user || "", "Date": h.dateString, "Time": h.timeString, "Type": h.actionText, "Item": h.name, "Qty": h.qty }));
+        const ordData = dispatchOrders.map(b => ({ "Order ID": b.orderId, "User": b.user || "", "Date": b.dateString, "Item Name": b.itemName, "Quantity": b.qty, "Status": b.status }));
+        const grData = grLogs.map(g => ({ "Log ID": g.id, "Group ID": g.groupId||'', "User": g.user || "", "Date": g.dateString, "Item": g.item, "Qty": g.qty, "Reason": g.reason }));
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(invData), "Inventory"); if (histData.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(histData), "History Log"); if (ordData.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ordData), "Dispatch Orders"); if (grData.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(grData), "GR_MFP Logs");
+        XLSX.writeFile(wb, "DOZY_StockPro_SingleLoc_Export.xlsx"); closeExportModal(); showToast(`Exported!`, 'success');
+    }
+    
+    function importAllDataExcel(e) {
+        const file = e.target.files[0]; if (!file) return; const reader = new FileReader();
+        reader.onload = function (e) {
+            const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+            if (wb.SheetNames.includes("Inventory")) { 
+                XLSX.utils.sheet_to_json(wb.Sheets["Inventory"]).forEach(row => { 
+                    const name = row["Item Name"]; 
+                    if (name && !inventory.some(i => i.name.toLowerCase() === name.toLowerCase())) { 
+                        const impStock = row["Available Stock"] !== undefined ? (parseInt(row["Available Stock"]) || 0) : ((parseInt(row["Bawana Stock"]) || 0) + (parseInt(row["Office Stock"]) || 0));
+                        inventory.push({ id: row["Product ID"] || Date.now().toString(), name, category: row["Category"] || 'General', image: '', stockQty: impStock, price: parseFloat(row["Price (₹)"] || row["Price"]) || 0, createdAt: Date.now() }); 
+                    } 
+                }); 
+            }
+            document.getElementById('importExcelGlobal').value = ''; saveAndRender(true); showToast(`Imported!`, 'success');
+        }; reader.readAsArrayBuffer(file);
+    }
+    
+    function openEditMasterModal(id) { 
+        if (currentRole !== 'admin' && currentRole !== 'staff') return;
+        const i = inventory.find(x => x.id === id); 
+        if (i) { 
+            document.getElementById('editMasterId').value = i.id; 
+            document.getElementById('editMasterName').value = i.name; 
+            document.getElementById('editMasterCategory').value = i.category || 'General'; 
+            document.getElementById('editMasterImage').value = i.image || ''; 
+            document.getElementById('editMasterStock').value = i.stockQty; 
+
+            if(currentRole === 'staff') {
+                document.getElementById('editMasterName').disabled = true;
+                document.getElementById('editMasterCategory').disabled = true;
+                document.getElementById('editMasterImage').disabled = true;
+            } else {
+                document.getElementById('editMasterName').disabled = false;
+                document.getElementById('editMasterCategory').disabled = false;
+                document.getElementById('editMasterImage').disabled = false;
+            }
+            document.getElementById('editMasterModal').style.display = 'flex'; 
+        } 
+    }
+    function closeEditMasterModal() { document.getElementById('editMasterModal').style.display = 'none'; }
+    function saveEditMaster() { const i = inventory.find(x => x.id === document.getElementById('editMasterId').value); if (i) { if(currentRole === 'admin') { i.name = document.getElementById('editMasterName').value.trim(); i.category = document.getElementById('editMasterCategory').value.trim(); i.image = document.getElementById('editMasterImage').value.trim(); } i.stockQty = parseInt(document.getElementById('editMasterStock').value) || 0; closeEditMasterModal(); saveAndRender(true, 'inventory'); showToast(`Updated.`, 'success'); } }
+    function openEditHistoryModal(id) { const l = historyLog.find(x => x.id === id); if (l) { document.getElementById('editHistoryId').value = l.id; document.getElementById('editHistoryItemName').innerText = `Target: ${l.name}`; document.getElementById('editHistoryQty').value = l.qty; document.getElementById('editHistoryPlatform').value = l.platform || ''; document.getElementById('editHistoryComment').value = l.comment || ''; document.getElementById('editHistoryModal').style.display = 'flex'; } }
+    function closeEditHistoryModal() { document.getElementById('editHistoryModal').style.display = 'none'; }
+    function saveEditHistory() { const l = historyLog.find(x => x.id === document.getElementById('editHistoryId').value); if (l) { l.qty = parseInt(document.getElementById('editHistoryQty').value) || 0; l.platform = document.getElementById('editHistoryPlatform').value.trim(); l.comment = document.getElementById('editHistoryComment').value.trim(); closeEditHistoryModal(); saveAndRender(true, 'historyLog'); showToast('Updated.', 'success'); } }
+    function openBatchLedgerModal() { document.getElementById('batchLedgerModal').style.display = 'flex'; } function closeBatchLedgerModal() { document.getElementById('batchLedgerModal').style.display = 'none'; }
+
+    function downloadLedgerTemplate(type) {
+        const sel = document.getElementById('bulkLedgerActionSelect').value; let rows = [];
+        if (type === 'prefilled') { const a = inventory.filter(i => !i.isDiscontinued); if (!a.length) return showToast('Catalog empty.', 'warning'); rows = a.map(i => ({ "Item Name": i.name, "Quantity": "", "Ref / Challan No.": "", "Remarks": "" })); } 
+        else { for (let i = 0; i < 5; i++) rows.push({ "Item Name": "", "Quantity": "", "Ref / Challan No.": "", "Remarks": "" }); }
+        const wb = XLSX.utils.book_new(), ws = XLSX.utils.json_to_sheet(rows); ws['!cols'] = [{ wch: 35 }, { wch: 15 }, { wch: 22 }, { wch: 25 }]; XLSX.utils.book_append_sheet(wb, ws, "Batch_Entry"); XLSX.writeFile(wb, `DOZY_Batch_${sel}_${type}.xlsx`); showToast(`Downloaded!`, 'success');
+    }
+
+    function executeLedgerExcelUpload(e) {
+        const file = e.target.files[0]; if (!file) return;
+        const act = document.getElementById('bulkLedgerActionSelect').value;
+        const actMap = { SALE: 'Sale (Dispatch)', CUST_RETURN: 'Customer Return', MFR_RECEIVE: 'Stock In (Receive)', MFR_RETURN: 'Stock Out (Return to Mfr)' };
+        
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' }), rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                if (!rows.length) return showToast('Empty file!', 'error');
+                let succ = 0, errs = []; const { dateString, timeString } = getFormattedRealTime();
+
+                rows.forEach((r, idx) => {
+                    const name = String(r["Item Name"]||'').trim(), rQ = r["Quantity"], qty = parseInt(rQ), pfm = String(r["Ref / Challan No."]||r["Platform"]||'').trim(), cmt = String(r["Remarks"]||r["Comment"]||'').trim();
+                    if (!rQ || isNaN(qty) || qty <= 0) { if (rQ !== undefined && (isNaN(qty) || qty < 0)) errs.push(`Row ${idx+2}: Skipped (Invalid Qty)`); return; }
+                    const item = inventory.find(i => i.name.toLowerCase() === name.toLowerCase());
+                    if (!item) return errs.push(`Row ${idx+2}: "${name}" — Not found`);
+                    if (item.isDiscontinued) return errs.push(`Row ${idx+2}: "${name}" — Discontinued`);
+                    
+                    const bases = getComboBases(item); const isCombo = bases.length > 0;
+                    const isDeduct = ['SALE', 'MFR_RETURN'].includes(act);
+
+                    if (isDeduct) {
+                        if (!isCombo && item.stockQty < qty) return errs.push(`Row ${idx+2}: Deficit Stock (${item.stockQty} avail)`);
+                        if (isCombo) { for(let b of bases) { if (b.stockQty < qty) return errs.push(`Row ${idx+2}: Combo deficit ${b.name}`); } }
+                        if (!isCombo) item.stockQty -= qty; else bases.forEach(b => b.stockQty -= qty);
+                    } else {
+                        if (!isCombo) item.stockQty += qty; else bases.forEach(b => b.stockQty += qty);
+                    }
+                    
+                    historyLog.unshift({ id: Date.now().toString() + Math.random().toString(36).substr(2,5), dateString, timeString, name: item.name, action: act, actionText: actMap[act], qty, platform: pfm, comment: cmt ? `[Excel] ${cmt}` : `[Excel]`, user: currentRole });
+                    succ++;
+                });
+                if (succ > 0) saveAndRender(true);
+                document.getElementById('ledgerExcelFileInput').value = ''; closeBatchLedgerModal(); showBatchReportModal(succ, errs);
+            } catch (err) { showToast('Error parsing file.', 'error'); document.getElementById('ledgerExcelFileInput').value = ''; }
+        }; reader.readAsArrayBuffer(file);
+    }
+
+    function showBatchReportModal(succ, errs) {
+        document.getElementById('repSuccessCount').innerText = succ; const fSec = document.getElementById('repFailSection'), el = document.getElementById('repErrorsList');
+        if (errs.length) { fSec.classList.remove('hidden'); document.getElementById('repFailCount').innerText = errs.length; el.innerHTML = errs.map(e => `<div class="p-2.5 rounded-xl bg-retro-rose/10 text-xs text-retro-rose font-bold flex gap-2"><span>•</span> <span>${e}</span></div>`).join(''); } 
+        else { fSec.classList.add('hidden'); el.innerHTML = ''; }
+        document.getElementById('batchReportModal').style.display = 'flex';
+    }
+    function closeBatchReportModal() { document.getElementById('batchReportModal').style.display = 'none'; }
+    function printViewer() { window.print(); }
+</script>
+</body>
+</html>
